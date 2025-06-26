@@ -107,7 +107,7 @@ export const searchMediaArts = async (query, limit = 20) => {
 // 関連データ込みの検索機能
 export const searchMediaArtsWithRelated = async (query, limit = 20, includeRelated = true) => {
   try {
-    const response = await apiV1.get('/media-arts/search-with-related', {
+    const response = await apiV1.get('/neo4j/search', {
       params: { q: query, limit, include_related: includeRelated }
     })
     return response.data
