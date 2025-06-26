@@ -33,6 +33,15 @@
             />
             検索深度: {{ searchDepth }}
           </label>
+          
+          <label class="option-checkbox">
+            <input 
+              v-model="includeRelated" 
+              type="checkbox"
+              class="related-checkbox"
+            />
+            関連作品・作者も表示
+          </label>
         </div>
         
         <button 
@@ -64,12 +73,14 @@ export default {
   setup(props, { emit }) {
     const searchQuery = ref('')
     const searchDepth = ref(2)
+    const includeRelated = ref(true)
 
     const handleSearch = () => {
       if (searchQuery.value.trim()) {
         emit('search', {
           query: searchQuery.value.trim(),
-          depth: searchDepth.value
+          depth: searchDepth.value,
+          includeRelated: includeRelated.value
         })
       }
     }
@@ -82,6 +93,7 @@ export default {
     return {
       searchQuery,
       searchDepth,
+      includeRelated,
       handleSearch,
       handleClear
     }
@@ -183,6 +195,20 @@ export default {
 .depth-slider {
   width: 100%;
   margin-top: 8px;
+}
+
+.option-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  font-size: 0.9rem;
+  margin-top: 12px;
+  cursor: pointer;
+}
+
+.related-checkbox {
+  cursor: pointer;
 }
 
 .clear-button {

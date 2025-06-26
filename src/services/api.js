@@ -9,7 +9,7 @@ const API_BASE_URL = import.meta.env.PROD
 // 現在のバックエンドが v1 対応しているかチェックして適切なbaseURLを使用
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -18,7 +18,7 @@ const api = axios.create({
 // v1 API用の設定
 const apiV1 = axios.create({
   baseURL: `${API_BASE_URL}/v${API_VERSION}`,
-  timeout: 30000,
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -100,6 +100,20 @@ export const searchMediaArts = async (query, limit = 20) => {
   } catch (error) {
     console.error('Media Arts search API error:', error)
     console.log('Media Arts API not yet available')
+    throw error
+  }
+}
+
+// 関連データ込みの検索機能
+export const searchMediaArtsWithRelated = async (query, limit = 20, includeRelated = true) => {
+  try {
+    const response = await apiV1.get('/neo4j/search', {
+      params: { q: query, limit, include_related: includeRelated }
+    })
+    return response.data
+  } catch (error) {
+    console.error('Media Arts search with related API error:', error)
+    console.log('Media Arts search with related API not yet available')
     throw error
   }
 }
