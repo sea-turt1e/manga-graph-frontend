@@ -59,6 +59,7 @@
 import { ref, onMounted, watch, nextTick } from 'vue'
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
+import { getWorkCover } from '../services/api'
 
 cytoscape.use(coseBilkent)
 
@@ -117,7 +118,7 @@ export default {
         
         style: [
           {
-            selector: 'node',
+            selector: 'node[!coverUrl]',
             style: {
               'background-color': (ele) => nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown,
               'label': 'data(label)',
@@ -131,6 +132,40 @@ export default {
               'text-wrap': 'wrap',
               'text-max-width': '120px',
               'border-width': 3,
+              'border-color': '#fff',
+              'box-shadow-blur': 6,
+              'box-shadow-color': 'rgba(0,0,0,0.3)',
+              'box-shadow-offset-x': 2,
+              'box-shadow-offset-y': 2
+            }
+          },
+          {
+            selector: 'node[coverUrl]',
+            style: {
+              'background-image': (ele) => {
+                const coverUrl = ele.data('coverUrl')
+                console.log('Applying cover image:', coverUrl)
+                return coverUrl
+              },
+              'background-fit': 'cover',
+              'background-clip': 'node',
+              'background-position-x': 'center',
+              'background-position-y': 'center',
+              'background-color': '#f0f0f0',
+              'width': 80,
+              'height': 120,
+              'shape': 'rectangle',
+              'label': 'data(label)',
+              'text-valign': 'bottom',
+              'text-margin-y': 15,
+              'color': '#333',
+              'font-size': '11px',
+              'font-weight': 'bold',
+              'text-wrap': 'wrap',
+              'text-max-width': '100px',
+              'text-background-color': 'rgba(255, 255, 255, 0.8)',
+              'text-background-padding': '2px',
+              'border-width': 2,
               'border-color': '#fff',
               'box-shadow-blur': 6,
               'box-shadow-color': 'rgba(0,0,0,0.3)',
@@ -221,18 +256,53 @@ export default {
       })
     }
 
-    const updateGraph = () => {
+    const updateGraph = async () => {
       if (!cy || !props.graphData) return
 
-      const elements = [
-        ...props.graphData.nodes.map(node => ({
-          data: {
+      // Load cover images for work nodes
+      const nodesWithCovers = await Promise.all(
+        props.graphData.nodes.map(async (node) => {
+          const nodeData = {
             id: node.id,
             label: node.label,
             type: node.type,
             properties: node.properties
           }
-        })),
+          
+          // Fetch cover image for work nodes
+          if (node.type === 'work' && node.id) {
+            try {
+              const coverData = await getWorkCover(node.id)
+              console.log('Cover data for', node.label, ':', coverData)
+              if (coverData && coverData.cover_url && coverData.has_real_cover) {
+                // Ensure the URL is properly formatted and accessible
+                const coverUrl = coverData.cover_url
+                console.log('Setting coverUrl for', node.label, ':', coverUrl)
+                nodeData.coverUrl = coverUrl
+                
+                // Pre-load the image to ensure it's accessible
+                const img = new Image()
+                img.onload = () => {
+                  console.log('Image loaded successfully for:', node.label)
+                }
+                img.onerror = () => {
+                  console.warn('Failed to load image for:', node.label, coverUrl)
+                  // Remove coverUrl if image fails to load
+                  delete nodeData.coverUrl
+                }
+                img.src = coverUrl
+              }
+            } catch (error) {
+              console.error('Failed to fetch cover for work:', node.id, error)
+            }
+          }
+          
+          return { data: nodeData }
+        })
+      )
+
+      const elements = [
+        ...nodesWithCovers,
         ...props.graphData.edges.map(edge => ({
           data: {
             id: edge.id,
@@ -245,6 +315,13 @@ export default {
 
       cy.elements().remove()
       cy.add(elements)
+      
+      // Debug: check nodes with cover URLs
+      const debugNodesWithCovers = cy.nodes().filter(node => node.data('coverUrl'))
+      console.log('Nodes with covers:', debugNodesWithCovers.length)
+      debugNodesWithCovers.forEach(node => {
+        console.log('Node with cover:', node.data('label'), node.data('coverUrl'))
+      })
       
       if (elements.length > 0) {
         cy.layout({

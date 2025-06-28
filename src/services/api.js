@@ -157,6 +157,17 @@ export const fulltextSearch = async (query, searchType = 'simple_query_string', 
   }
 }
 
+// 書影取得機能
+export const getWorkCover = async (workId) => {
+  try {
+    const response = await apiV1.get(`/covers/work/${encodeURIComponent(workId)}`)
+    return response.data
+  } catch (error) {
+    console.error('Work cover API error:', error)
+    return null
+  }
+}
+
 // ヘルスチェック（非バージョン管理）
 export const healthCheck = async () => {
   try {
