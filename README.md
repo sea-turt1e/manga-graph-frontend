@@ -106,5 +106,11 @@ npm run preview
 ```
 
 ## ライセンス
+Apache License 2.0
 
-ISC
+## データセット
+このアプリケーションは、以下のデータセットを使用しています：
+- 文化庁メディア芸術データベースのデータ
+  - データの詳細は、[文化庁メディア芸術データベース](https://mediaarts-db.bunka.go.jp/)をご覧ください。
+- OpenBDのデータ
+  - データの詳細は、[OpenBD](https://openbd.jp/)をご覧ください。
