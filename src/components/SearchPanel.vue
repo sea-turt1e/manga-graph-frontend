@@ -7,7 +7,10 @@
         <div class="search-input-group">
           <input 
             v-model="searchQuery"
-            @keyup.enter="handleSearch"
+            @keydown.enter="handleKeyDown"
+            @keyup.enter="handleKeyUp"
+            @compositionstart="isComposing = true"
+            @compositionend="handleCompositionEnd"
             type="text" 
             placeholder="作品名を入力してください（例：ONE PIECE）"
             class="search-input"
@@ -74,6 +77,7 @@ export default {
     const searchQuery = ref('')
     const searchDepth = ref(2)
     const includeRelated = ref(true)
+    const isComposing = ref(false)
 
     const handleSearch = () => {
       if (searchQuery.value.trim()) {
@@ -85,6 +89,25 @@ export default {
       }
     }
 
+    // Handle keydown event to prevent default Enter behavior during IME composition
+    const handleKeyDown = (event) => {
+      if (event.key === 'Enter' && isComposing.value) {
+        event.preventDefault()
+      }
+    }
+
+    // Handle keyup event to trigger search only when not composing
+    const handleKeyUp = (event) => {
+      if (event.key === 'Enter' && !isComposing.value) {
+        handleSearch()
+      }
+    }
+
+    // Handle composition end event
+    const handleCompositionEnd = () => {
+      isComposing.value = false
+    }
+
     const handleClear = () => {
       searchQuery.value = ''
       emit('clear')
@@ -94,7 +117,11 @@ export default {
       searchQuery,
       searchDepth,
       includeRelated,
+      isComposing,
       handleSearch,
+      handleKeyDown,
+      handleKeyUp,
+      handleCompositionEnd,
       handleClear
     }
   }
