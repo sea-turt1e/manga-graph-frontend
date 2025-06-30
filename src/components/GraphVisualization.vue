@@ -118,7 +118,7 @@ export default {
         
         style: [
           {
-            selector: 'node[!coverUrl]',
+            selector: 'node',
             style: {
               'background-color': (ele) => nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown,
               'label': 'data(label)',
@@ -133,25 +133,21 @@ export default {
               'text-max-width': '120px',
               'border-width': 3,
               'border-color': '#fff',
-              'box-shadow-blur': 6,
-              'box-shadow-color': 'rgba(0,0,0,0.3)',
-              'box-shadow-offset-x': 2,
-              'box-shadow-offset-y': 2
+              'overlay-opacity': 0
             }
           },
           {
             selector: 'node[coverUrl]',
             style: {
-              'background-image': (ele) => {
-                const coverUrl = ele.data('coverUrl')
-                console.log('Applying cover image:', coverUrl)
-                return coverUrl
-              },
+              'background-image': 'data(coverUrl)',
               'background-fit': 'cover',
               'background-clip': 'node',
-              'background-position-x': 'center',
-              'background-position-y': 'center',
-              'background-color': '#f0f0f0',
+              'background-position-x': '50%',
+              'background-position-y': '50%',
+              'background-color': '#f5f5f5',
+              'background-opacity': 1,
+              'background-image-opacity': 1,
+              'background-image-crossorigin': 'anonymous',
               'width': 80,
               'height': 120,
               'shape': 'rectangle',
@@ -163,14 +159,13 @@ export default {
               'font-weight': 'bold',
               'text-wrap': 'wrap',
               'text-max-width': '100px',
-              'text-background-color': 'rgba(255, 255, 255, 0.8)',
-              'text-background-padding': '2px',
+              'text-background-color': 'rgba(255, 255, 255, 0.9)',
+              'text-background-padding': '3px',
+              'text-background-shape': 'roundrectangle',
               'border-width': 2,
-              'border-color': '#fff',
-              'box-shadow-blur': 6,
-              'box-shadow-color': 'rgba(0,0,0,0.3)',
-              'box-shadow-offset-x': 2,
-              'box-shadow-offset-y': 2
+              'border-color': '#ccc',
+              'border-style': 'solid',
+              'overlay-opacity': 0
             }
           },
           {
@@ -178,8 +173,7 @@ export default {
             style: {
               'border-color': '#FFD700',
               'border-width': 4,
-              'box-shadow-blur': 10,
-              'box-shadow-color': 'rgba(255,215,0,0.5)'
+              'overlay-opacity': 0
             }
           },
           {
@@ -272,23 +266,57 @@ export default {
           // Fetch cover image for work nodes
           if (node.type === 'work' && node.id) {
             try {
+              console.log('Fetching cover for work:', node.id, node.label)
               const coverData = await getWorkCover(node.id)
               console.log('Cover data for', node.label, ':', coverData)
-              if (coverData && coverData.cover_url && coverData.has_real_cover) {
-                // Ensure the URL is properly formatted and accessible
-                const coverUrl = coverData.cover_url
+              if (coverData && coverData.cover_url) {
+                // プレースホルダー画像でも表示する
+                let coverUrl = coverData.cover_url
+                
+                // Google Books APIなど外部URLの場合は、公開CORSプロキシを使用
+                if (coverUrl.startsWith('http') && (coverUrl.includes('books.google.com') || coverUrl.includes('googleapis.com'))) {
+                  // 開発環境では公開CORSプロキシを使用
+                  if (import.meta.env.DEV) {
+                    // AllOriginsやcors-anywhereなどの公開プロキシサービスを使用
+                    coverUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(coverUrl)}`
+                  } else {
+                    // 本番環境ではバックエンドのプロキシエンドポイントを使用
+                    coverUrl = `/api/v1/covers/proxy?url=${encodeURIComponent(coverUrl)}`
+                  }
+                } else if (!coverUrl.startsWith('http')) {
+                  // 相対URLの場合はベースURLを追加
+                  coverUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}${coverUrl}`
+                }
+                
                 console.log('Setting coverUrl for', node.label, ':', coverUrl)
                 nodeData.coverUrl = coverUrl
                 
                 // Pre-load the image to ensure it's accessible
                 const img = new Image()
+                // CORSプロキシを使用している場合は、crossOriginは不要
+                if (!coverUrl.includes('allorigins.win')) {
+                  img.crossOrigin = 'anonymous'
+                }
                 img.onload = () => {
                   console.log('Image loaded successfully for:', node.label)
+                  // 画像がロードされたら、Cytoscapeノードを更新
+                  if (cy) {
+                    const node = cy.getElementById(nodeData.id)
+                    if (node && node.length > 0) {
+                      node.data('coverUrl', coverUrl)
+                    }
+                  }
                 }
-                img.onerror = () => {
-                  console.warn('Failed to load image for:', node.label, coverUrl)
-                  // Remove coverUrl if image fails to load
+                img.onerror = (error) => {
+                  console.warn('Failed to load image for:', node.label, coverUrl, error)
+                  // 画像の読み込みに失敗した場合は、coverUrlを削除
                   delete nodeData.coverUrl
+                  if (cy) {
+                    const node = cy.getElementById(nodeData.id)
+                    if (node && node.length > 0) {
+                      node.removeData('coverUrl')
+                    }
+                  }
                 }
                 img.src = coverUrl
               }
@@ -315,13 +343,6 @@ export default {
 
       cy.elements().remove()
       cy.add(elements)
-      
-      // Debug: check nodes with cover URLs
-      const debugNodesWithCovers = cy.nodes().filter(node => node.data('coverUrl'))
-      console.log('Nodes with covers:', debugNodesWithCovers.length)
-      debugNodesWithCovers.forEach(node => {
-        console.log('Node with cover:', node.data('label'), node.data('coverUrl'))
-      })
       
       if (elements.length > 0) {
         cy.layout({
