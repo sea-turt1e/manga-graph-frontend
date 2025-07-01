@@ -69,7 +69,7 @@
 import { ref, onMounted, watch, nextTick } from 'vue'
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
-import { getWorkCover, fetchBulkImages } from '../services/api'
+import { getBulkWorkCovers, fetchBulkImages } from '../services/api'
 
 cytoscape.use(coseBilkent)
 
@@ -276,91 +276,94 @@ export default {
         }
       }))
 
-      // If there are work nodes, fetch their cover URLs first
-      let coverUrls = []
+      // If there are work nodes, fetch their cover URLs using bulk API
       if (workNodes.length > 0) {
         try {
-          console.log('Fetching cover URLs for', workNodes.length, 'works')
-          const coverPromises = workNodes.map(node => getWorkCover(node.id))
-          const coverResults = await Promise.all(coverPromises)
+          console.log('Fetching cover URLs for', workNodes.length, 'works using bulk API')
+          const workIds = workNodes.map(node => node.id)
           
-          // Extract URLs for bulk fetch and prepare requests
-          const imageRequests = []
-          coverUrls = []
+          // Bulk fetch cover URLs
+          const bulkCoverResponse = await getBulkWorkCovers(workIds)
+          console.log('Bulk cover response:', bulkCoverResponse)
           
-          coverResults.forEach((coverData, index) => {
-            if (coverData && coverData.cover_url) {
-              const workId = workNodes[index].id
-              imageRequests.push({
-                work_id: workId,
-                cover_url: coverData.cover_url
-              })
-              coverUrls.push({
-                workId: workId,
-                url: coverData.cover_url
-              })
-            }
-          })
-          
-          console.log('Found', imageRequests.length, 'cover URLs to fetch')
-          
-          // Bulk fetch images
-          if (imageRequests.length > 0) {
-            try {
-              const bulkResponse = await fetchBulkImages(imageRequests)
-              console.log('Bulk fetch response:', bulkResponse)
-              
-              // Apply successful image URLs to nodes
-              if (bulkResponse && bulkResponse.results) {
-                const successResults = bulkResponse.results.filter(result => result.success)
-                console.log('Successfully fetched', successResults.length, 'images')
-                
-                // Update node data with cover URLs (use base64 data URLs)
-                successResults.forEach(result => {
-                  const nodeIndex = initialNodes.findIndex(node => node.data.id === result.work_id)
-                  if (nodeIndex >= 0) {
-                    // Create data URL from base64 image data
-                    const dataUrl = `data:${result.content_type};base64,${result.image_data}`
-                    initialNodes[nodeIndex].data.coverUrl = dataUrl
-                    console.log('Applied cover image for work:', result.work_id)
-                  }
+          if (bulkCoverResponse && bulkCoverResponse.results) {
+            // Extract URLs for bulk image fetch and prepare requests
+            const imageRequests = []
+            const coverUrls = []
+            
+            bulkCoverResponse.results.forEach((coverData) => {
+              if (coverData && coverData.cover_url && !coverData.error) {
+                imageRequests.push({
+                  work_id: coverData.work_id,
+                  cover_url: coverData.cover_url
+                })
+                coverUrls.push({
+                  workId: coverData.work_id,
+                  url: coverData.cover_url
                 })
               }
-            } catch (bulkError) {
-              console.error('Bulk image fetch failed:', bulkError)
-              // Fall back to individual fetching if bulk fails
-              console.log('Falling back to individual image loading')
-              
-              const imagePromises = coverUrls.map(async (item) => {
-                try {
-                  const img = new Image()
-                  img.crossOrigin = 'anonymous'
+            })
+            
+            console.log('Found', imageRequests.length, 'cover URLs to fetch images for')
+            
+            // Bulk fetch images
+            if (imageRequests.length > 0) {
+              try {
+                const bulkImageResponse = await fetchBulkImages(imageRequests)
+                console.log('Bulk image fetch response:', bulkImageResponse)
+                
+                // Apply successful image URLs to nodes
+                if (bulkImageResponse && bulkImageResponse.results) {
+                  const successResults = bulkImageResponse.results.filter(result => result.success)
+                  console.log('Successfully fetched', successResults.length, 'images')
                   
-                  return new Promise((resolve) => {
-                    img.onload = () => {
-                      console.log('Individual image loaded for:', item.workId)
-                      const nodeIndex = initialNodes.findIndex(node => node.data.id === item.workId)
-                      if (nodeIndex >= 0) {
-                        initialNodes[nodeIndex].data.coverUrl = item.url
-                      }
-                      resolve()
+                  // Update node data with cover URLs (use base64 data URLs)
+                  successResults.forEach(result => {
+                    const nodeIndex = initialNodes.findIndex(node => node.data.id === result.work_id)
+                    if (nodeIndex >= 0) {
+                      // Create data URL from base64 image data
+                      const dataUrl = `data:${result.content_type};base64,${result.image_data}`
+                      initialNodes[nodeIndex].data.coverUrl = dataUrl
+                      console.log('Applied cover image for work:', result.work_id)
                     }
-                    img.onerror = () => {
-                      console.warn('Failed to load individual image for:', item.workId, item.url)
-                      resolve()
-                    }
-                    img.src = item.url
                   })
-                } catch (error) {
-                  console.error('Error loading individual image:', error)
                 }
-              })
-              
-              await Promise.all(imagePromises)
+              } catch (bulkImageError) {
+                console.error('Bulk image fetch failed:', bulkImageError)
+                // Fall back to individual image fetching if bulk fails
+                console.log('Falling back to individual image loading')
+                
+                const imagePromises = coverUrls.map(async (item) => {
+                  try {
+                    const img = new Image()
+                    img.crossOrigin = 'anonymous'
+                    
+                    return new Promise((resolve) => {
+                      img.onload = () => {
+                        console.log('Individual image loaded for:', item.workId)
+                        const nodeIndex = initialNodes.findIndex(node => node.data.id === item.workId)
+                        if (nodeIndex >= 0) {
+                          initialNodes[nodeIndex].data.coverUrl = item.url
+                        }
+                        resolve()
+                      }
+                      img.onerror = () => {
+                        console.warn('Failed to load individual image for:', item.workId, item.url)
+                        resolve()
+                      }
+                      img.src = item.url
+                    })
+                  } catch (error) {
+                    console.error('Error loading individual image:', error)
+                  }
+                })
+                
+                await Promise.all(imagePromises)
+              }
             }
           }
         } catch (error) {
-          console.error('Failed to fetch cover data:', error)
+          console.error('Failed to fetch bulk cover data:', error)
         }
       }
 

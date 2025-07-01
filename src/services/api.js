@@ -166,6 +166,23 @@ export const getWorkCover = async (workId) => {
   }
 }
 
+// 複数の書影を一括取得
+export const getBulkWorkCovers = async (workIds) => {
+  try {
+    const requestBody = {
+      work_ids: workIds
+    }
+    
+    console.log('Sending bulk cover request:', requestBody)
+    const response = await apiV1.post('/covers/bulk', requestBody)
+    return response.data
+  } catch (error) {
+    console.error('Bulk cover API error:', error)
+    console.error('Error details:', error.response?.data)
+    throw error
+  }
+}
+
 // 複数の画像を一括取得
 export const fetchBulkImages = async (imageRequests) => {
   try {
