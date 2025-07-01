@@ -69,7 +69,7 @@
 import { ref, onMounted, watch, nextTick } from 'vue'
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
-import { getWorkCover } from '../services/api'
+import { getBulkWorkCovers, fetchBulkImages } from '../services/api'
 
 cytoscape.use(coseBilkent)
 
@@ -263,84 +263,112 @@ export default {
     const updateGraph = async () => {
       if (!cy || !props.graphData) return
 
-      // Load cover images for work nodes
-      const nodesWithCovers = await Promise.all(
-        props.graphData.nodes.map(async (node) => {
-          const nodeData = {
-            id: node.id,
-            label: node.label,
-            type: node.type,
-            properties: node.properties
-          }
+      // Collect all work nodes that need cover images
+      const workNodes = props.graphData.nodes.filter(node => node.type === 'work' && node.id)
+      
+      // Prepare initial node data
+      const initialNodes = props.graphData.nodes.map(node => ({
+        data: {
+          id: node.id,
+          label: node.label,
+          type: node.type,
+          properties: node.properties
+        }
+      }))
+
+      // If there are work nodes, fetch their cover URLs using bulk API
+      if (workNodes.length > 0) {
+        try {
+          console.log('Fetching cover URLs for', workNodes.length, 'works using bulk API')
+          const workIds = workNodes.map(node => node.id)
           
-          // Fetch cover image for work nodes
-          if (node.type === 'work' && node.id) {
-            try {
-              console.log('Fetching cover for work:', node.id, node.label)
-              const coverData = await getWorkCover(node.id)
-              console.log('Cover data for', node.label, ':', coverData)
-              if (coverData && coverData.cover_url) {
-                // プレースホルダー画像でも表示する
-                let coverUrl = coverData.cover_url
-                
-                // Google Books APIなど外部URLの場合は、公開CORSプロキシを使用
-                if (coverUrl.startsWith('http') && (coverUrl.includes('books.google.com') || coverUrl.includes('googleapis.com'))) {
-                  // 開発環境では公開CORSプロキシを使用
-                  if (import.meta.env.DEV) {
-                    // AllOriginsやcors-anywhereなどの公開プロキシサービスを使用
-                    coverUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(coverUrl)}`
-                  } else {
-                    // 本番環境ではバックエンドのプロキシエンドポイントを使用
-                    coverUrl = `/api/v1/covers/proxy?url=${encodeURIComponent(coverUrl)}`
-                  }
-                } else if (!coverUrl.startsWith('http')) {
-                  // 相対URLの場合はベースURLを追加
-                  coverUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}${coverUrl}`
-                }
-                
-                console.log('Setting coverUrl for', node.label, ':', coverUrl)
-                nodeData.coverUrl = coverUrl
-                
-                // Pre-load the image to ensure it's accessible
-                const img = new Image()
-                // CORSプロキシを使用している場合は、crossOriginは不要
-                if (!coverUrl.includes('allorigins.win')) {
-                  img.crossOrigin = 'anonymous'
-                }
-                img.onload = () => {
-                  console.log('Image loaded successfully for:', node.label)
-                  // 画像がロードされたら、Cytoscapeノードを更新
-                  if (cy) {
-                    const node = cy.getElementById(nodeData.id)
-                    if (node && node.length > 0) {
-                      node.data('coverUrl', coverUrl)
-                    }
-                  }
-                }
-                img.onerror = (error) => {
-                  console.warn('Failed to load image for:', node.label, coverUrl, error)
-                  // 画像の読み込みに失敗した場合は、coverUrlを削除
-                  delete nodeData.coverUrl
-                  if (cy) {
-                    const node = cy.getElementById(nodeData.id)
-                    if (node && node.length > 0) {
-                      node.removeData('coverUrl')
-                    }
-                  }
-                }
-                img.src = coverUrl
+          // Bulk fetch cover URLs
+          const bulkCoverResponse = await getBulkWorkCovers(workIds)
+          console.log('Bulk cover response:', bulkCoverResponse)
+          
+          if (bulkCoverResponse && bulkCoverResponse.results) {
+            // Extract URLs for bulk image fetch and prepare requests
+            const imageRequests = []
+            const coverUrls = []
+            
+            bulkCoverResponse.results.forEach((coverData) => {
+              if (coverData && coverData.cover_url && !coverData.error) {
+                imageRequests.push({
+                  work_id: coverData.work_id,
+                  cover_url: coverData.cover_url
+                })
+                coverUrls.push({
+                  workId: coverData.work_id,
+                  url: coverData.cover_url
+                })
               }
-            } catch (error) {
-              console.error('Failed to fetch cover for work:', node.id, error)
+            })
+            
+            console.log('Found', imageRequests.length, 'cover URLs to fetch images for')
+            
+            // Bulk fetch images
+            if (imageRequests.length > 0) {
+              try {
+                const bulkImageResponse = await fetchBulkImages(imageRequests)
+                console.log('Bulk image fetch response:', bulkImageResponse)
+                
+                // Apply successful image URLs to nodes
+                if (bulkImageResponse && bulkImageResponse.results) {
+                  const successResults = bulkImageResponse.results.filter(result => result.success)
+                  console.log('Successfully fetched', successResults.length, 'images')
+                  
+                  // Update node data with cover URLs (use base64 data URLs)
+                  successResults.forEach(result => {
+                    const nodeIndex = initialNodes.findIndex(node => node.data.id === result.work_id)
+                    if (nodeIndex >= 0) {
+                      // Create data URL from base64 image data
+                      const dataUrl = `data:${result.content_type};base64,${result.image_data}`
+                      initialNodes[nodeIndex].data.coverUrl = dataUrl
+                      console.log('Applied cover image for work:', result.work_id)
+                    }
+                  })
+                }
+              } catch (bulkImageError) {
+                console.error('Bulk image fetch failed:', bulkImageError)
+                // Fall back to individual image fetching if bulk fails
+                console.log('Falling back to individual image loading')
+                
+                const imagePromises = coverUrls.map(async (item) => {
+                  try {
+                    const img = new Image()
+                    img.crossOrigin = 'anonymous'
+                    
+                    return new Promise((resolve) => {
+                      img.onload = () => {
+                        console.log('Individual image loaded for:', item.workId)
+                        const nodeIndex = initialNodes.findIndex(node => node.data.id === item.workId)
+                        if (nodeIndex >= 0) {
+                          initialNodes[nodeIndex].data.coverUrl = item.url
+                        }
+                        resolve()
+                      }
+                      img.onerror = () => {
+                        console.warn('Failed to load individual image for:', item.workId, item.url)
+                        resolve()
+                      }
+                      img.src = item.url
+                    })
+                  } catch (error) {
+                    console.error('Error loading individual image:', error)
+                  }
+                })
+                
+                await Promise.all(imagePromises)
+              }
             }
           }
-          
-          return { data: nodeData }
-        })
-      )
+        } catch (error) {
+          console.error('Failed to fetch bulk cover data:', error)
+        }
+      }
 
       const elements = [
-        ...nodesWithCovers,
+        ...initialNodes,
         ...props.graphData.edges.map(edge => ({
           data: {
             id: edge.id,
