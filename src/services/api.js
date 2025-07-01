@@ -2,9 +2,7 @@ import axios from 'axios'
 
 // API設定
 const API_VERSION = '1'
-const API_BASE_URL = import.meta.env.PROD 
-  ? (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000')
-  : '/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 // 現在のバックエンドが v1 対応しているかチェックして適切なbaseURLを使用
 const api = axios.create({
@@ -17,7 +15,7 @@ const api = axios.create({
 
 // v1 API用の設定
 const apiV1 = axios.create({
-  baseURL: `${API_BASE_URL}/v${API_VERSION}`,
+  baseURL: `${API_BASE_URL}/api/v${API_VERSION}`,
   timeout: 60000,
   headers: {
     'Content-Type': 'application/json'
@@ -165,6 +163,24 @@ export const getWorkCover = async (workId) => {
   } catch (error) {
     console.error('Work cover API error:', error)
     return null
+  }
+}
+
+// 複数の画像を一括取得
+export const fetchBulkImages = async (imageRequests) => {
+  try {
+    // 正しいAPIスキーマに合わせてリクエストを構築
+    const requestBody = {
+      requests: imageRequests
+    }
+    
+    console.log('Sending bulk fetch request:', requestBody)
+    const response = await apiV1.post('/images/fetch-bulk', requestBody)
+    return response.data
+  } catch (error) {
+    console.error('Bulk image fetch API error:', error)
+    console.error('Error details:', error.response?.data)
+    throw error
   }
 }
 
