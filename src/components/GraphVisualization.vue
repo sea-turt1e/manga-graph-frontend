@@ -57,7 +57,13 @@
         <p><strong>タイプ:</strong> {{ getNodeTypeLabel(selectedNode.type) }}</p>
         <div v-if="selectedNode.properties">
           <div v-for="(value, key) in selectedNode.properties" :key="key" class="property-item">
-            <strong>{{ formatPropertyKey(key) }}:</strong> {{ value }}
+            <strong>{{ formatPropertyKey(key) }}:</strong> 
+            <span v-if="key === 'db_url'">
+              <a :href="value" target="_blank" rel="noopener noreferrer" class="db-url-link">
+                {{ value }}
+              </a>
+            </span>
+            <span v-else>{{ value }}</span>
           </div>
         </div>
       </div>
@@ -115,7 +121,8 @@ export default {
         publication_date: '出版日',
         birth_date: '生年月日',
         nationality: '国籍',
-        genre: 'ジャンル'
+        genre: 'ジャンル',
+        db_url: 'DB URL'
       }
       return keyLabels[key] || key
     }
@@ -161,21 +168,57 @@ export default {
               'width': 80,
               'height': 120,
               'shape': 'rectangle',
-              'label': 'data(label)',
-              'text-valign': 'bottom',
-              'text-margin-y': 15,
-              'color': '#333',
-              'font-size': '11px',
-              'font-weight': 'bold',
-              'text-wrap': 'wrap',
-              'text-max-width': '100px',
-              'text-background-color': 'rgba(255, 255, 255, 0.9)',
-              'text-background-padding': '3px',
-              'text-background-shape': 'roundrectangle',
+              'label': '',
               'border-width': 2,
               'border-color': '#ccc',
               'border-style': 'solid',
               'overlay-opacity': 0
+            }
+          },
+          {
+            selector: 'node[type="work"]:not([coverUrl])',
+            style: {
+              'width': 80,
+              'height': 120,
+              'shape': 'rectangle',
+              'background-color': '#ffffff',
+              'border-width': 2,
+              'border-color': '#ccc',
+              'border-style': 'solid',
+              'label': 'data(label)',
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'color': '#333',
+              'font-size': '9px',
+              'font-weight': 'bold',
+              'text-wrap': 'wrap',
+              'text-max-width': '75px',
+              'overlay-opacity': 0
+            }
+          },
+          {
+            selector: 'node[type="author"]',
+            style: {
+              'background-color': (ele) => nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown,
+              'label': 'data(label)',
+              'width': 60,
+              'height': 60,
+              'shape': 'ellipse',
+              'text-valign': 'bottom',
+              'text-margin-y': 10,
+              'color': '#333',
+              'font-size': '12px',
+              'font-weight': 'bold',
+              'text-wrap': 'wrap',
+              'text-max-width': '120px',
+              'border-width': 3,
+              'border-color': '#fff',
+              'overlay-opacity': 0,
+              'content': '👤',
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'font-size': '24px',
+              'color': '#ffffff'
             }
           },
           {
@@ -267,14 +310,22 @@ export default {
       const workNodes = props.graphData.nodes.filter(node => node.type === 'work' && node.id)
       
       // Prepare initial node data
-      const initialNodes = props.graphData.nodes.map(node => ({
-        data: {
-          id: node.id,
-          label: node.label,
-          type: node.type,
-          properties: node.properties
+      const initialNodes = props.graphData.nodes.map(node => {
+        // Extract DB URL from id and add to properties
+        const nodeProperties = { ...node.properties }
+        if (node.id && node.id.startsWith('http')) {
+          nodeProperties.db_url = node.id
         }
-      }))
+        
+        return {
+          data: {
+            id: node.id,
+            label: node.label,
+            type: node.type,
+            properties: nodeProperties
+          }
+        }
+      })
 
       // If there are work nodes, fetch their cover URLs using bulk API
       if (workNodes.length > 0) {
@@ -695,6 +746,16 @@ export default {
 
 .property-item strong {
   color: #333;
+}
+
+.db-url-link {
+  color: #007bff;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.db-url-link:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 768px) {
