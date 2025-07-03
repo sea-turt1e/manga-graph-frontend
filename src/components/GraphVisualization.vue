@@ -72,10 +72,9 @@
 </template>
 
 <script>
-import { ref, onMounted, watch, nextTick } from 'vue'
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
-import { getBulkWorkCovers, fetchBulkImages } from '../services/api'
+import { nextTick, onMounted, ref, watch } from 'vue'
 
 cytoscape.use(coseBilkent)
 
@@ -100,6 +99,7 @@ export default {
       work: '#4CAF50',
       author: '#2196F3', 
       magazine: '#FF9800',
+      publisher: '#9C27B0',
       unknown: '#9E9E9E'
     }
 
@@ -108,6 +108,7 @@ export default {
         work: '作品',
         author: '作者',
         magazine: '雑誌',
+        publisher: '出版社',
         unknown: '不明'
       }
       return labels[type] || type
@@ -200,25 +201,60 @@ export default {
             selector: 'node[type="author"]',
             style: {
               'background-color': (ele) => nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown,
-              'label': 'data(label)',
-              'width': 60,
-              'height': 60,
+              'label': (ele) => '👤\n' + ele.data('label'),
+              'width': 80,
+              'height': 80,
               'shape': 'ellipse',
-              'text-valign': 'bottom',
-              'text-margin-y': 10,
-              'color': '#333',
-              'font-size': '12px',
-              'font-weight': 'bold',
-              'text-wrap': 'wrap',
-              'text-max-width': '120px',
-              'border-width': 3,
-              'border-color': '#fff',
-              'overlay-opacity': 0,
-              'content': '👤',
               'text-valign': 'center',
               'text-halign': 'center',
-              'font-size': '24px',
-              'color': '#ffffff'
+              'color': '#ffffff',
+              'font-size': '10px',
+              'font-weight': 'bold',
+              'text-wrap': 'wrap',
+              'text-max-width': '75px',
+              'border-width': 3,
+              'border-color': '#fff',
+              'overlay-opacity': 0
+            }
+          },
+          {
+            selector: 'node[type="publisher"]',
+            style: {
+              'background-color': (ele) => nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown,
+              'label': (ele) => '🏢\n' + ele.data('label'),
+              'width': 80,
+              'height': 80,
+              'shape': 'ellipse',
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'color': '#ffffff',
+              'font-size': '10px',
+              'font-weight': 'bold',
+              'text-wrap': 'wrap',
+              'text-max-width': '75px',
+              'border-width': 3,
+              'border-color': '#fff',
+              'overlay-opacity': 0
+            }
+          },
+          {
+            selector: 'node[type="magazine"]',
+            style: {
+              'background-color': (ele) => nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown,
+              'label': (ele) => '📖\n' + ele.data('label'),
+              'width': 80,
+              'height': 80,
+              'shape': 'ellipse',
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'color': '#ffffff',
+              'font-size': '10px',
+              'font-weight': 'bold',
+              'text-wrap': 'wrap',
+              'text-max-width': '75px',
+              'border-width': 3,
+              'border-color': '#fff',
+              'overlay-opacity': 0
             }
           },
           {
@@ -306,8 +342,7 @@ export default {
     const updateGraph = async () => {
       if (!cy || !props.graphData) return
 
-      // Collect all work nodes that need cover images
-      const workNodes = props.graphData.nodes.filter(node => node.type === 'work' && node.id)
+      // Note: Cover image functionality is commented out for now
       
       // Prepare initial node data
       const initialNodes = props.graphData.nodes.map(node => {
@@ -317,106 +352,139 @@ export default {
           nodeProperties.db_url = node.id
         }
         
+        // Process label based on node type
+        let displayLabel = node.label
+        
+        // For author nodes, show only the first person name
+        if (node.type === 'author' && node.label) {
+          const authors = node.label.split(/[,、]/)
+          displayLabel = authors[0].trim()
+        }
+        
+        // For work nodes, add line breaks for better text wrapping
+        if (node.type === 'work' && node.label) {
+          // Split long titles into multiple lines (approximately every 8-10 characters)
+          const maxCharsPerLine = 8
+          const words = node.label.split('')
+          let lines = []
+          let currentLine = ''
+          
+          for (let i = 0; i < words.length; i++) {
+            currentLine += words[i]
+            if (currentLine.length >= maxCharsPerLine && i < words.length - 1) {
+              lines.push(currentLine)
+              currentLine = ''
+            }
+          }
+          if (currentLine) {
+            lines.push(currentLine)
+          }
+          
+          displayLabel = lines.join('\n')
+        }
+        
         return {
           data: {
             id: node.id,
-            label: node.label,
+            label: displayLabel,
             type: node.type,
             properties: nodeProperties
           }
         }
       })
 
+      // Because of the complexity of fetching cover images with law, we will handle it separately
+      
       // If there are work nodes, fetch their cover URLs using bulk API
-      if (workNodes.length > 0) {
-        try {
-          console.log('Fetching cover URLs for', workNodes.length, 'works using bulk API')
-          const workIds = workNodes.map(node => node.id)
+      // if (workNodes.length > 0) {
+      //   try {
+      //     console.log('Fetching cover URLs for', workNodes.length, 'works using bulk API')
+      //     const workIds = workNodes.map(node => node.id)
           
-          // Bulk fetch cover URLs
-          const bulkCoverResponse = await getBulkWorkCovers(workIds)
-          console.log('Bulk cover response:', bulkCoverResponse)
+      //     // Bulk fetch cover URLs
+      //     const bulkCoverResponse = await getBulkWorkCovers(workIds)
+      //     console.log('Bulk cover response:', bulkCoverResponse)
           
-          if (bulkCoverResponse && bulkCoverResponse.results) {
-            // Extract URLs for bulk image fetch and prepare requests
-            const imageRequests = []
-            const coverUrls = []
+      //     if (bulkCoverResponse && bulkCoverResponse.results) {
+      //       // Extract URLs for bulk image fetch and prepare requests
+      //       const imageRequests = []
+      //       const coverUrls = []
             
-            bulkCoverResponse.results.forEach((coverData) => {
-              if (coverData && coverData.cover_url && !coverData.error) {
-                imageRequests.push({
-                  work_id: coverData.work_id,
-                  cover_url: coverData.cover_url
-                })
-                coverUrls.push({
-                  workId: coverData.work_id,
-                  url: coverData.cover_url
-                })
-              }
-            })
+      //       bulkCoverResponse.results.forEach((coverData) => {
+      //         if (coverData && coverData.cover_url && !coverData.error) {
+      //           imageRequests.push({
+      //             work_id: coverData.work_id,
+      //             cover_url: coverData.cover_url
+      //           })
+      //           coverUrls.push({
+      //             workId: coverData.work_id,
+      //             url: coverData.cover_url
+      //           })
+      //         }
+      //       })
             
-            console.log('Found', imageRequests.length, 'cover URLs to fetch images for')
+      //       console.log('Found', imageRequests.length, 'cover URLs to fetch images for')
             
-            // Bulk fetch images
-            if (imageRequests.length > 0) {
-              try {
-                const bulkImageResponse = await fetchBulkImages(imageRequests)
-                console.log('Bulk image fetch response:', bulkImageResponse)
+      //       // Bulk fetch images
+      //       if (imageRequests.length > 0) {
+      //         try {
+      //           const bulkImageResponse = await fetchBulkImages(imageRequests)
+      //           console.log('Bulk image fetch response:', bulkImageResponse)
                 
-                // Apply successful image URLs to nodes
-                if (bulkImageResponse && bulkImageResponse.results) {
-                  const successResults = bulkImageResponse.results.filter(result => result.success)
-                  console.log('Successfully fetched', successResults.length, 'images')
+      //           // Apply successful image URLs to nodes
+      //           if (bulkImageResponse && bulkImageResponse.results) {
+      //             const successResults = bulkImageResponse.results.filter(result => result.success)
+      //             console.log('Successfully fetched', successResults.length, 'images')
                   
-                  // Update node data with cover URLs (use base64 data URLs)
-                  successResults.forEach(result => {
-                    const nodeIndex = initialNodes.findIndex(node => node.data.id === result.work_id)
-                    if (nodeIndex >= 0) {
-                      // Create data URL from base64 image data
-                      const dataUrl = `data:${result.content_type};base64,${result.image_data}`
-                      initialNodes[nodeIndex].data.coverUrl = dataUrl
-                      console.log('Applied cover image for work:', result.work_id)
-                    }
-                  })
-                }
-              } catch (bulkImageError) {
-                console.error('Bulk image fetch failed:', bulkImageError)
-                // Fall back to individual image fetching if bulk fails
-                console.log('Falling back to individual image loading')
+      //             // Update node data with cover URLs (use base64 data URLs)
+      //             successResults.forEach(result => {
+      //               const nodeIndex = initialNodes.findIndex(node => node.data.id === result.work_id)
+      //               if (nodeIndex >= 0) {
+      //                 // Create data URL from base64 image data
+      //                 const dataUrl = `data:${result.content_type};base64,${result.image_data}`
+      //                 initialNodes[nodeIndex].data.coverUrl = dataUrl
+      //                 console.log('Applied cover image for work:', result.work_id)
+      //               }
+      //             })
+      //           }
+      //         } catch (bulkImageError) {
+      //           console.error('Bulk image fetch failed:', bulkImageError)
+      //           // Fall back to individual image fetching if bulk fails
+      //           console.log('Falling back to individual image loading')
                 
-                const imagePromises = coverUrls.map(async (item) => {
-                  try {
-                    const img = new Image()
-                    img.crossOrigin = 'anonymous'
+      //           const imagePromises = coverUrls.map(async (item) => {
+      //             try {
+      //               const img = new Image()
+      //               img.crossOrigin = 'anonymous'
                     
-                    return new Promise((resolve) => {
-                      img.onload = () => {
-                        console.log('Individual image loaded for:', item.workId)
-                        const nodeIndex = initialNodes.findIndex(node => node.data.id === item.workId)
-                        if (nodeIndex >= 0) {
-                          initialNodes[nodeIndex].data.coverUrl = item.url
-                        }
-                        resolve()
-                      }
-                      img.onerror = () => {
-                        console.warn('Failed to load individual image for:', item.workId, item.url)
-                        resolve()
-                      }
-                      img.src = item.url
-                    })
-                  } catch (error) {
-                    console.error('Error loading individual image:', error)
-                  }
-                })
+      //               return new Promise((resolve) => {
+      //                 img.onload = () => {
+      //                   console.log('Individual image loaded for:', item.workId)
+      //                   const nodeIndex = initialNodes.findIndex(node => node.data.id === item.workId)
+      //                   if (nodeIndex >= 0) {
+      //                     initialNodes[nodeIndex].data.coverUrl = item.url
+      //                   }
+      //                   resolve()
+      //                 }
+      //                 img.onerror = () => {
+      //                   console.warn('Failed to load individual image for:', item.workId, item.url)
+      //                   resolve()
+      //                 }
+      //                 img.src = item.url
+      //               })
+      //             } catch (error) {
+      //               console.error('Error loading individual image:', error)
+      //             }
+      //           })
                 
-                await Promise.all(imagePromises)
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Failed to fetch bulk cover data:', error)
-        }
-      }
+      //           await Promise.all(imagePromises)
+      //         }
+      //       }
+      //     }
+      //   } catch (error) {
+      //     console.error('Failed to fetch bulk cover data:', error)
+      //   }
+      // }
 
       const elements = [
         ...initialNodes,
