@@ -26,7 +26,7 @@
         </div>
         
         <div class="search-options">
-          <label class="option-label">
+          <!-- <label class="option-label">
             <input 
               v-model="searchDepth" 
               type="range" 
@@ -35,7 +35,7 @@
               class="depth-slider"
             />
             検索深度: {{ searchDepth }}
-          </label>
+          </label> -->
           
           <label class="option-checkbox">
             <input 
@@ -58,7 +58,7 @@
       <div class="search-tips">
         <h3>使い方</h3>
         <ul>
-          <li>作品名で検索すると、関連する作者や作品を表示します</li>
+          <!-- <li>作品名で検索すると、関連する作者や作品を表示します</li> -->
           <li>検索深度を調整して、関係の範囲を変更できます</li>
           <li>ノードをドラッグして位置を調整できます</li>
         </ul>
