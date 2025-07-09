@@ -45,6 +45,18 @@
             />
             関連作品・作者も表示
           </label>
+          
+          <label class="option-label">
+            取得件数上限:
+            <input 
+              v-model.number="searchLimit" 
+              type="number" 
+              min="1" 
+              max="100" 
+              class="limit-input"
+            />
+            （最大100件）
+          </label>
         </div>
         
         <button 
@@ -77,6 +89,7 @@ export default {
     const searchQuery = ref('')
     const searchDepth = ref(2)
     const includeRelated = ref(true)
+    const searchLimit = ref(20)
     const isComposing = ref(false)
 
     const handleSearch = () => {
@@ -84,7 +97,8 @@ export default {
         emit('search', {
           query: searchQuery.value.trim(),
           depth: searchDepth.value,
-          includeRelated: includeRelated.value
+          includeRelated: includeRelated.value,
+          limit: Math.min(Math.max(1, searchLimit.value), 100)
         })
       }
     }
@@ -117,6 +131,7 @@ export default {
       searchQuery,
       searchDepth,
       includeRelated,
+      searchLimit,
       isComposing,
       handleSearch,
       handleKeyDown,
@@ -236,6 +251,22 @@ export default {
 
 .related-checkbox {
   cursor: pointer;
+}
+
+.limit-input {
+  width: 80px;
+  padding: 6px 8px;
+  margin-left: 8px;
+  margin-right: 4px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.limit-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
 }
 
 .clear-button {
