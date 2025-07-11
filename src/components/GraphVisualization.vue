@@ -103,6 +103,22 @@ export default {
       unknown: '#9E9E9E'
     }
 
+    const edgeColors = {
+      created: '#2E7D32',
+      authored: '#2E7D32',
+      published: '#FFB74D',
+      published_by: '#CE93D8',
+      same_publisher: '#CE93D8',
+      belongs_to: '#FFB74D',
+      mentor_of: '#7B1FA2',
+      influenced_by: '#7B1FA2',
+      collaborated_with: '#1976D2',
+      worked_with: '#1976D2',
+      default: '#78909C'
+    }
+
+    const searchedWorkColor = null
+
     const getNodeTypeLabel = (type) => {
       const labels = {
         work: '作品',
@@ -150,7 +166,7 @@ export default {
               'text-wrap': 'wrap',
               'text-max-width': '120px',
               'border-width': 3,
-              'border-color': '#fff',
+              'border-color': (ele) => ele.data('isSearched') ? '#B71C1C' : '#fff',
               'overlay-opacity': 0
             }
           },
@@ -171,7 +187,7 @@ export default {
               'shape': 'rectangle',
               'label': '',
               'border-width': 2,
-              'border-color': '#ccc',
+              'border-color': (ele) => ele.data('isSearched') ? '#B71C1C' : '#ccc',
               'border-style': 'solid',
               'overlay-opacity': 0
             }
@@ -184,7 +200,7 @@ export default {
               'shape': 'rectangle',
               'background-color': '#ffffff',
               'border-width': 2,
-              'border-color': '#ccc',
+              'border-color': (ele) => ele.data('isSearched') ? '#B71C1C' : '#ccc',
               'border-style': 'solid',
               'label': 'data(label)',
               'text-valign': 'center',
@@ -213,7 +229,7 @@ export default {
               'text-wrap': 'wrap',
               'text-max-width': '75px',
               'border-width': 3,
-              'border-color': '#fff',
+              'border-color': (ele) => ele.data('isSearched') ? '#B71C1C' : '#fff',
               'overlay-opacity': 0
             }
           },
@@ -233,7 +249,7 @@ export default {
               'text-wrap': 'wrap',
               'text-max-width': '75px',
               'border-width': 3,
-              'border-color': '#fff',
+              'border-color': (ele) => ele.data('isSearched') ? '#B71C1C' : '#fff',
               'overlay-opacity': 0
             }
           },
@@ -253,7 +269,7 @@ export default {
               'text-wrap': 'wrap',
               'text-max-width': '75px',
               'border-width': 3,
-              'border-color': '#fff',
+              'border-color': (ele) => ele.data('isSearched') ? '#B71C1C' : '#fff',
               'overlay-opacity': 0
             }
           },
@@ -269,8 +285,8 @@ export default {
             selector: 'edge',
             style: {
               'width': 3,
-              'line-color': '#ccc',
-              'target-arrow-color': '#ccc',
+              'line-color': (ele) => edgeColors[ele.data('type')] || edgeColors.default,
+              'target-arrow-color': (ele) => edgeColors[ele.data('type')] || edgeColors.default,
               'target-arrow-shape': 'triangle',
               'curve-style': 'bezier',
               'control-point-step-size': 40,
@@ -278,26 +294,38 @@ export default {
             }
           },
           {
-            selector: 'edge[type="created"]',
+            selector: 'edge[type="created"], edge[type="authored"]',
             style: {
-              'line-color': '#4CAF50',
-              'target-arrow-color': '#4CAF50'
+              'line-style': 'solid',
+              'width': 3
+            }
+          },
+          {
+            selector: 'edge[type="published"], edge[type="published_by"], edge[type="belongs_to"]',
+            style: {
+              'line-style': 'solid',
+              'width': 3
             }
           },
           {
             selector: 'edge[type="same_publisher"]',
             style: {
-              'line-color': '#FF9800',
-              'target-arrow-color': '#FF9800',
-              'line-style': 'dashed'
+              'line-style': 'solid',
+              'width': 3
             }
           },
           {
-            selector: 'edge[type="mentor_of"]',
+            selector: 'edge[type="mentor_of"], edge[type="influenced_by"]',
             style: {
-              'line-color': '#9C27B0',
-              'target-arrow-color': '#9C27B0',
+              'line-style': 'solid',
               'width': 4
+            }
+          },
+          {
+            selector: 'edge[type="collaborated_with"], edge[type="worked_with"]',
+            style: {
+              'line-style': 'solid',
+              'width': 3
             }
           }
         ],
@@ -388,7 +416,8 @@ export default {
             id: node.id,
             label: displayLabel,
             type: node.type,
-            properties: nodeProperties
+            properties: nodeProperties,
+            isSearched: node.isSearched || false
           }
         }
       })
