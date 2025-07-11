@@ -44,7 +44,18 @@ export default {
           searchParams.limit || 20, // limitパラメータを使用、デフォルトは20
           searchParams.includeRelated
         )
-        graphData.nodes = result.nodes || []
+        
+        // 検索結果のノードを特定してマークする
+        const searchQuery = searchParams.query.toLowerCase()
+        const nodes = (result.nodes || []).map(node => {
+          const isSearched = node.label && node.label.toLowerCase().includes(searchQuery)
+          return {
+            ...node,
+            isSearched
+          }
+        })
+        
+        graphData.nodes = nodes
         graphData.edges = result.edges || []
       } catch (error) {
         console.error('Search failed:', error)
