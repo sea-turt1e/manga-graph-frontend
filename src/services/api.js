@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // API設定
 const API_VERSION = '1'
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 // 現在のバックエンドが v1 対応しているかチェックして適切なbaseURLを使用
 const api = axios.create({
