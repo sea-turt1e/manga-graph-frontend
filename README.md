@@ -6,6 +6,15 @@
 
 このアプリケーションは、漫画作品、作者、雑誌間の関係をインタラクティブなグラフとして可視化します。Cytoscape.jsを使用してノードとエッジを表示し、バックエンドAPIと連携して検索・表示機能を提供します。
 
+## バックエンド
+バックエンドのリポジトリは[こちら（Manga Graph）](https://github.com/sea-turt1e/manga-graph)にあります。
+
+## デモ
+このAPIを利用したデモは[Manga Graph Visualizer](https://mangagraph.netlify.app/)として公開されており、インタラクティブなグラフ操作が可能です。  
+（ただし一部のノードはサーバー負荷削減のため省いています。）
+
+[![Manga_Graph_Visualizer_demo](/images/manga_graph_visualizer.gif)](https://mangagraph.netlify.app/)
+
 ## 主な機能
 
 - **検索機能**: 作品名による検索と関連データ表示
