@@ -856,17 +856,70 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .graph-container {
+    flex: 1;
+    min-height: 60vh;
+  }
+
   .graph-header {
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .graph-stats {
+    font-size: 0.85rem;
+  }
+
+  .graph-controls {
+    gap: 8px;
+  }
+
+  .control-button {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+
+  .graph-viewport {
+    height: calc(100% - 60px);
+  }
+
+  .empty-state {
+    padding: 20px;
+    text-align: center;
+  }
+
+  .empty-icon {
+    font-size: 3rem;
+  }
+
+  .empty-state h3 {
+    font-size: 1.2rem;
+  }
+
+  .empty-state p {
+    font-size: 0.9rem;
   }
   
   .node-info-panel {
-    position: relative;
-    width: 100%;
+    position: fixed;
+    width: calc(100% - 20px);
     margin: 10px;
     top: auto;
+    bottom: 10px;
     right: auto;
+    left: 10px;
+    max-height: 40vh;
+    overflow-y: auto;
+    z-index: 1000;
+  }
+
+  .loading-text {
+    font-size: 1rem;
+  }
+
+  .loading-subtext {
+    font-size: 0.85rem;
   }
 }
 </style>

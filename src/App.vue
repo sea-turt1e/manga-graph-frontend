@@ -92,4 +92,13 @@ export default {
   flex: 1;
   height: calc(100vh - 80px);
 }
+
+/* モバイルレスポンシブ対応 */
+@media (max-width: 768px) {
+  .main-content {
+    flex-direction: column;
+    height: auto;
+    min-height: calc(100vh - 80px);
+  }
+}
 </style>

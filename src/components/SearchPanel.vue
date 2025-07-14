@@ -324,8 +324,50 @@ export default {
   .search-panel {
     width: 100%;
     height: auto;
+    max-height: 40vh;
     border-right: none;
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+  }
+
+  .search-container {
+    height: auto;
+  }
+
+  .search-tips {
+    display: none;
+  }
+
+  .search-title {
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+  }
+
+  .search-form {
+    margin-bottom: 15px;
+  }
+
+  .search-input-group {
+    gap: 8px;
+    margin-bottom: 15px;
+  }
+
+  .search-input {
+    padding: 10px 14px;
+    font-size: 0.9rem;
+  }
+
+  .search-button {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+  }
+
+  .option-label {
+    font-size: 0.85rem;
+  }
+
+  .option-checkbox {
+    font-size: 0.85rem;
   }
 }
 </style>
