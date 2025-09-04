@@ -28,7 +28,7 @@
               </a>
               
               <a 
-                href="https://mangagraphrag.streamlit.app/" 
+                href="https://manga-graph-graphrag-production.up.railway.app/" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 class="link-card"
