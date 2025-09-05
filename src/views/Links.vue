@@ -48,7 +48,7 @@
             <h2 class="category-title">解説</h2>
             <div class="link-cards">
               <a 
-                href="" 
+                href="https://zenn.dev/sea_turt1e/articles/manga-graph-db" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 class="link-card"
