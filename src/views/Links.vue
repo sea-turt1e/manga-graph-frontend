@@ -19,7 +19,9 @@
                 rel="noopener noreferrer"
                 class="link-card"
               >
-                <div class="link-icon">📚</div>
+                <div class="link-icon">
+                  <img :src="graphCover" alt="Manga Graph Visualizer" class="link-img" />
+                </div>
                 <div class="link-content">
                   <h3>Manga Graph Visualizer</h3>
                   <p>漫画のグラフDBを可視化</p>
@@ -33,7 +35,7 @@
                 rel="noopener noreferrer"
                 class="link-card"
               >
-                <div class="link-icon">🧠</div>
+                <div class="link-icon">🤖</div>
                 <div class="link-content">
                   <h3>GraphRAGデモ</h3>
                   <p>漫画のグラフDBを使用したGraphRAGのStreamlitデモ</p>
@@ -86,7 +88,7 @@
                   </svg>
                 </div>
                 <div class="link-content">
-                  <h3>GitHub（API）</h3>
+                  <h3>GitHubリポジトリ（API）</h3>
                   <p>MangaGraphのAPIリポジトリ</p>
                 </div>
                 <div class="external-icon">↗</div>
@@ -104,7 +106,9 @@
                 rel="noopener noreferrer"
                 class="link-card"
               >
-                <div class="link-icon">📺</div>
+                <div class="link-icon">
+                  <img :src="portfolioImage" alt="Portfolio" class="link-img" />
+                </div>
                 <div class="link-content">
                   <h3>ポートフォリオ</h3>
                 </div>
@@ -123,7 +127,7 @@
                   </svg>
                 </div>
                 <div class="link-content">
-                  <h3>GitHub</h3>
+                  <h3>GitHub Profile</h3>
                 </div>
                 <div class="external-icon">↗</div>
               </a>
@@ -150,12 +154,20 @@
 </template>
 
 <script>
+import graphCover from '../assets/graph-white-cover-image.png';
+import portfolioImage from '../assets/portfolio-image.png';
 import Header from '../components/Header.vue';
 
 export default {
   name: 'Links',
   components: {
     Header
+  },
+  data() {
+    return {
+      graphCover,
+      portfolioImage
+    }
   }
 }
 </script>
@@ -285,6 +297,13 @@ export default {
 .link-icon.github-logo svg {
   width: 28px;
   height: 28px;
+}
+
+.link-img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 8px;
 }
 
 .link-content {
