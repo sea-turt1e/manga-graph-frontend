@@ -70,12 +70,31 @@
             />
           </label>
 
-          <label class="option-label">
+          <!-- <label class="option-label">
             埋め込み方式:
             <select v-model="embeddingMethod" class="embedding-select">
               <option value="huggingface">huggingface</option>
               <option value="hash">hash</option>
               <option value="openai">openai</option>
+            </select>
+          </label> -->
+
+          <!-- 新規: 巻数でのフィルタ＆ソート -->
+          <label class="option-label">
+            最小巻数:
+            <input
+              v-model.number="minTotalVolumes"
+              type="number"
+              min="0"
+              class="limit-input"
+            />
+          </label>
+
+          <label class="option-label">
+            巻数ソート順:
+            <select v-model="sortTotalVolumes" class="embedding-select">
+              <option value="desc">desc</option>
+              <option value="asc">asc</option>
             </select>
           </label>
         </div>
@@ -87,18 +106,7 @@
           クリア
         </button>
 
-        <!-- Fuzzy 候補表示 -->
-        <div v-if="fuzzyCandidates && fuzzyCandidates.length" class="fuzzy-candidates">
-          <h3 class="fuzzy-title">候補タイトル (曖昧検索)</h3>
-          <ul class="fuzzy-list">
-            <li v-for="c in fuzzyCandidates" :key="c.title" class="fuzzy-item">
-              <button class="fuzzy-button" @click="selectFuzzy(c.title)">
-                <span class="fuzzy-main">{{ c.title }}</span>
-                <span class="fuzzy-score">({{ formatScore(c.score) }})</span>
-              </button>
-            </li>
-          </ul>
-        </div>
+        
       </div>
 
       <div class="search-tips">
@@ -115,22 +123,21 @@
 </template>
 
 <script>
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 
 export default {
   name: 'SearchPanel',
-  props: {
-    fuzzyCandidates: { type: Array, default: () => [] }
-  },
-  emits: ['search', 'clear', 'select-fuzzy'],
+  emits: ['search', 'clear'],
   setup(props, { emit }) {
     const searchQuery = ref('')
     const searchDepth = ref(2)
     const includeRelated = ref(true)
     const searchLimit = ref(20)
     const isComposing = ref(false)
-    const similarityThreshold = ref(0.5)
+    const similarityThreshold = ref(0.8)
     const embeddingMethod = ref('huggingface')
+  const minTotalVolumes = ref(5)
+  const sortTotalVolumes = ref('desc')
 
     const handleSearch = () => {
       if (searchQuery.value.trim()) {
@@ -140,7 +147,9 @@ export default {
           includeRelated: includeRelated.value,
           limit: Math.min(Math.max(1, searchLimit.value), 100),
           similarityThreshold: similarityThreshold.value,
-          embeddingMethod: embeddingMethod.value
+          embeddingMethod: embeddingMethod.value,
+          minTotalVolumes: Math.max(0, Number(minTotalVolumes.value) || 0),
+          sortTotalVolumes: sortTotalVolumes.value
         })
       }
     }
@@ -166,19 +175,6 @@ export default {
       emit('clear')
     }
 
-    const selectFuzzy = (title) => {
-      searchQuery.value = title
-      emit('select-fuzzy', { title })
-    }
-
-    const formatScore = (score) => {
-      if (score == null) return '-'
-      return Number(score).toFixed(3)
-    }
-
-    // When fuzzy candidates appear and current query matches none exactly, keep query as-is
-    watch(() => props.fuzzyCandidates, () => {}, { deep: true })
-
     return {
       searchQuery,
       searchDepth,
@@ -187,13 +183,13 @@ export default {
       isComposing,
       similarityThreshold,
       embeddingMethod,
+  minTotalVolumes,
+  sortTotalVolumes,
       handleSearch,
       handleKeyDown,
       handleKeyUp,
       handleCompositionEnd,
-      handleClear,
-      selectFuzzy,
-      formatScore
+  handleClear
     }
   }
 }
@@ -349,52 +345,7 @@ export default {
   background: #e0e0e0;
 }
 
-.fuzzy-candidates {
-  margin-top: 20px;
-  padding: 12px 14px;
-  background: #fafafa;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-}
-
-.fuzzy-title {
-  font-size: 0.95rem;
-  margin-bottom: 8px;
-  color: #333;
-}
-
-.fuzzy-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-
-.fuzzy-button {
-  width: 100%;
-  text-align: left;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 8px 10px;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.85rem;
-  transition: background 0.2s;
-}
-
-.fuzzy-button:hover {
-  background: #f0f4ff;
-  border-color: #667eea;
-}
-
-.fuzzy-main { font-weight: 600; color: #333; }
-.fuzzy-score { color: #555; font-family: monospace; }
+/* 候補タイトル表示は親ビュー側で表示するため、このコンポーネントからは削除 */
 
 .search-tips {
   flex: 1;

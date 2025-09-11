@@ -103,10 +103,26 @@ export const searchMediaArts = async (query, limit = 20) => {
 }
 
 // 関連データ込みの検索機能
-export const searchMediaArtsWithRelated = async (query, limit = 20, includeRelated = true) => {
+export const searchMediaArtsWithRelated = async (
+  query,
+  limit = 20,
+  includeRelated = true,
+  options = {}
+) => {
   try {
+    const {
+      sortTotalVolumes = 'desc',
+      minTotalVolumes = 5
+    } = options || {}
+
     const response = await apiV1.get('/neo4j/search', {
-      params: { q: query, limit, include_related: includeRelated }
+      params: {
+        q: query,
+        limit,
+        include_related: includeRelated,
+        sort_total_volumes: sortTotalVolumes,
+        min_total_volumes: minTotalVolumes
+      }
     })
     return response.data
   } catch (error) {
@@ -120,7 +136,7 @@ export const searchMediaArtsWithRelated = async (query, limit = 20, includeRelat
 export const searchMangaFuzzy = async (
   query,
   limit = 5,
-  similarityThreshold = 0.5,
+  similarityThreshold = 0.8,
   embeddingMethod = 'huggingface'
 ) => {
   try {
