@@ -322,4 +322,22 @@ export default {
 
 .toast-fade-enter-active, .toast-fade-leave-active { transition: opacity .3s, transform .3s; }
 .toast-fade-enter-from, .toast-fade-leave-to { opacity: 0; transform: translateY(10px); }
+
+/* モバイルレイアウト: 検索欄の下にグラフが来るように縦並びにする */
+@media (max-width: 768px) {
+  .home {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto; /* スクロール可能に */
+  }
+
+  .main-content {
+    flex-direction: column; /* 横並び -> 縦並び */
+    height: auto; /* 固定高を解除 */
+  }
+
+  .graph-area {
+    min-height: 60vh; /* グラフ領域に十分な高さを確保 */
+  }
+}
 </style>
