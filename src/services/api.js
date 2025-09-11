@@ -136,7 +136,7 @@ export const searchMediaArtsWithRelated = async (
 export const searchMangaFuzzy = async (
   query,
   limit = 5,
-  similarityThreshold = 0.5,
+  similarityThreshold = 0.8,
   embeddingMethod = 'huggingface'
 ) => {
   try {
