@@ -116,6 +116,29 @@ export const searchMediaArtsWithRelated = async (query, limit = 20, includeRelat
   }
 }
 
+// 曖昧検索（タイトル類似検索）
+export const searchMangaFuzzy = async (
+  query,
+  limit = 5,
+  similarityThreshold = 0.5,
+  embeddingMethod = 'huggingface'
+) => {
+  try {
+    const response = await apiV1.get('/neo4j/search-fuzzy', {
+      params: {
+        q: query,
+        limit,
+        similarity_threshold: similarityThreshold,
+        embedding_method: embeddingMethod
+      }
+    })
+    return response.data
+  } catch (error) {
+    console.error('Fuzzy search API error:', error)
+    throw error
+  }
+}
+
 export const getCreatorWorks = async (creatorName, limit = 50) => {
   try {
     const response = await apiV1.get(`/media-arts/creator/${encodeURIComponent(creatorName)}`, {
