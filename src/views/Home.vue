@@ -61,7 +61,11 @@ export default {
         let result = await searchMediaArtsWithRelated(
           originalQuery,
           searchParams.limit || 20,
-          searchParams.includeRelated
+          searchParams.includeRelated,
+          {
+            sortTotalVolumes: searchParams.sortTotalVolumes || 'desc',
+            minTotalVolumes: (typeof searchParams.minTotalVolumes === 'number' ? searchParams.minTotalVolumes : 5)
+          }
         )
 
         const hasData = (result?.nodes?.length || 0) > 0 || (result?.edges?.length || 0) > 0
@@ -140,7 +144,9 @@ export default {
       await handleSearch({
         query: title,
         limit: 20,
-        includeRelated: true
+  includeRelated: true,
+  sortTotalVolumes: 'desc',
+  minTotalVolumes: 5
       })
     }
 

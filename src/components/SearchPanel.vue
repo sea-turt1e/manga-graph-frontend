@@ -70,12 +70,31 @@
             />
           </label>
 
-          <label class="option-label">
+          <!-- <label class="option-label">
             埋め込み方式:
             <select v-model="embeddingMethod" class="embedding-select">
               <option value="huggingface">huggingface</option>
               <option value="hash">hash</option>
               <option value="openai">openai</option>
+            </select>
+          </label> -->
+
+          <!-- 新規: 巻数でのフィルタ＆ソート -->
+          <label class="option-label">
+            最小巻数:
+            <input
+              v-model.number="minTotalVolumes"
+              type="number"
+              min="0"
+              class="limit-input"
+            />
+          </label>
+
+          <label class="option-label">
+            巻数ソート順:
+            <select v-model="sortTotalVolumes" class="embedding-select">
+              <option value="desc">desc</option>
+              <option value="asc">asc</option>
             </select>
           </label>
         </div>
@@ -131,6 +150,8 @@ export default {
     const isComposing = ref(false)
     const similarityThreshold = ref(0.5)
     const embeddingMethod = ref('huggingface')
+  const minTotalVolumes = ref(5)
+  const sortTotalVolumes = ref('desc')
 
     const handleSearch = () => {
       if (searchQuery.value.trim()) {
@@ -140,7 +161,9 @@ export default {
           includeRelated: includeRelated.value,
           limit: Math.min(Math.max(1, searchLimit.value), 100),
           similarityThreshold: similarityThreshold.value,
-          embeddingMethod: embeddingMethod.value
+          embeddingMethod: embeddingMethod.value,
+          minTotalVolumes: Math.max(0, Number(minTotalVolumes.value) || 0),
+          sortTotalVolumes: sortTotalVolumes.value
         })
       }
     }
@@ -187,6 +210,8 @@ export default {
       isComposing,
       similarityThreshold,
       embeddingMethod,
+  minTotalVolumes,
+  sortTotalVolumes,
       handleSearch,
       handleKeyDown,
       handleKeyUp,
