@@ -135,12 +135,14 @@ export default {
           // title が存在しない場合 properties.title を昇格させる
           const resolvedTitle = node.title || node.properties?.title || ''
           const titleLower = resolvedTitle.toLowerCase()
-          const isSearchResult = titleLower.includes(searchQuery)
+          // 検索語を含む作品ノードを強調対象にする
+          const isSearchHit = node.type === 'work' && titleLower.includes(searchQuery)
           return {
             ...node,
             title: resolvedTitle, // 可視化用に正規化
-            isSearchResult,
-            color: isSearchResult ? '#ff6b6b' : (node.color || '#4fc3f7')
+            isSearchResult: isSearchHit,
+            isSearched: isSearchHit,
+            color: isSearchHit ? '#ff6b6b' : (node.color || '#4fc3f7')
           }
         })
 

@@ -1,7 +1,7 @@
 <template>
   <div class="search-panel">
     <div class="search-container">
-      <h2 class="search-title">作品検索</h2>
+      <h2 class="search-title">漫画名を入力してください</h2>
       
       <div class="search-form">
         <div class="search-input-group">
@@ -12,7 +12,7 @@
             @compositionstart="isComposing = true"
             @compositionend="handleCompositionEnd"
             type="text" 
-            placeholder="作品名を入力してください（例：ONE PIECE）"
+            placeholder="例：ONE PIECE"
             class="search-input"
           />
           <button 

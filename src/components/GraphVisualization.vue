@@ -54,17 +54,16 @@
         <button @click="selectedNode = null" class="close-button">×</button>
       </div>
       <div class="node-info-content">
-        <p><strong>タイプ:</strong> {{ getNodeTypeLabel(selectedNode.type) }}</p>
-        <div v-if="selectedNode.properties">
-          <div v-for="(value, key) in selectedNode.properties" :key="key" class="property-item">
-            <strong>{{ formatPropertyKey(key) }}:</strong> 
-            <span v-if="key === 'db_url'">
-              <a :href="value" target="_blank" rel="noopener noreferrer" class="db-url-link">
-                {{ value }}
-              </a>
-            </span>
-            <span v-else>{{ value }}</span>
-          </div>
+        <div v-if="selectedNode.properties && selectedNode.properties.db_url" class="property-item">
+          <strong>リンク: </strong>
+          <a
+            :href="selectedNode.properties.db_url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="db-url-link"
+          >
+            {{ selectedNode.properties.db_url }}
+          </a>
         </div>
       </div>
     </div>
@@ -139,7 +138,7 @@ export default {
         birth_date: '生年月日',
         nationality: '国籍',
         genre: 'ジャンル',
-        db_url: 'DB URL'
+  db_url: 'リンク'
       }
       return keyLabels[key] || key
     }
@@ -168,6 +167,19 @@ export default {
               'border-width': 3,
               'border-color': (ele) => ele.data('isSearched') ? '#B71C1C' : '#fff',
               'overlay-opacity': 0
+            }
+          },
+          // 検索ヒットノードの強調（太枠・グロー）
+          {
+            selector: 'node[isSearched]'
+            ,
+            style: {
+              'border-width': 5,
+              'shadow-blur': 20,
+              'shadow-color': '#ff6b6b',
+              'shadow-opacity': 0.6,
+              'shadow-offset-x': 0,
+              'shadow-offset-y': 0
             }
           },
           {
@@ -354,7 +366,8 @@ export default {
         const node = evt.target
         selectedNode.value = {
           id: node.data('id'),
-          label: node.data('label'),
+          // 見出しにはオリジナルのラベルを使用（改行挿入によるスペース崩れを防ぐ）
+          label: node.data('originalLabel') || node.data('label'),
           type: node.data('type'),
           properties: node.data('properties')
         }
@@ -415,6 +428,7 @@ export default {
           data: {
             id: node.id,
             label: displayLabel,
+            originalLabel: node.label, // 情報パネル用に元のラベルを保持
             type: node.type,
             properties: nodeProperties,
             isSearched: node.isSearched || false
@@ -531,6 +545,29 @@ export default {
       cy.add(elements)
       
       if (elements.length > 0) {
+        // レイアウト後に検索ヒットノードへフォーカス＆ハイライト
+        cy.one('layoutstop', () => {
+          try {
+            const searched = cy.nodes().filter(n => !!n.data('isSearched'))
+            if (searched && searched.length > 0) {
+              // 検索ヒット集合へフォーカス
+              cy.fit(searched, 80)
+              // 軽いアニメーションで注意を引く
+              searched.forEach(n => {
+                const type = n.data('type')
+                const isWork = type === 'work'
+                const backBorder = isWork ? 2 : 3
+                const backSize = isWork ? { w: 80, h: 120 } : { w: 80, h: 80 }
+                const boostSize = isWork ? { w: 100, h: 150 } : { w: 95, h: 95 }
+                n.animate({ style: { 'border-width': 6, 'width': boostSize.w, 'height': boostSize.h } }, { duration: 280 })
+                 .animate({ style: { 'border-width': backBorder, 'width': backSize.w, 'height': backSize.h } }, { duration: 280 })
+              })
+            }
+          } catch (e) {
+            console.warn('Highlight animation failed:', e)
+          }
+        })
+
         cy.layout({
           name: 'cose-bilkent',
           quality: 'default',

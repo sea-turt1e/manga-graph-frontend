@@ -35,7 +35,7 @@
                 rel="noopener noreferrer"
                 class="link-card"
               >
-                <div class="link-icon">🤖</div>
+                <div class="link-icon">💬</div>
                 <div class="link-content">
                   <h3>GraphRAGデモ</h3>
                   <p>漫画のグラフDBを使用したGraphRAGのStreamlitデモ</p>
