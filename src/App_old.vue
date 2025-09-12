@@ -15,10 +15,10 @@
 </template>
 
 <script>
-import { ref, reactive } from 'vue'
+import { reactive, ref } from 'vue'
+import GraphVisualization from './components/GraphVisualization.vue'
 import Header from './components/Header.vue'
 import SearchPanel from './components/SearchPanel.vue'
-import GraphVisualization from './components/GraphVisualization.vue'
 import { searchMediaArtsWithRelated } from './services/api'
 
 export default {
@@ -41,7 +41,7 @@ export default {
         // 常にsearchMediaArtsWithRelatedを使用
         const result = await searchMediaArtsWithRelated(
           searchParams.query,
-          searchParams.limit || 20, // limitパラメータを使用、デフォルトは20
+          searchParams.limit || 50, // limitパラメータを使用、デフォルトは50
           searchParams.includeRelated
         )
         

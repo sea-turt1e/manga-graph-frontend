@@ -89,7 +89,7 @@ export const getMagazines = async () => {
 }
 
 // 文化庁メディア芸術データベース機能
-export const searchMediaArts = async (query, limit = 20) => {
+export const searchMediaArts = async (query, limit = 30) => {
   try {
     const response = await apiV1.get('/media-arts/search', {
       params: { q: query, limit }
@@ -105,7 +105,7 @@ export const searchMediaArts = async (query, limit = 20) => {
 // 関連データ込みの検索機能
 export const searchMediaArtsWithRelated = async (
   query,
-  limit = 20,
+  limit = 50,
   includeRelated = true,
   options = {}
 ) => {
@@ -181,7 +181,7 @@ export const getMangaMagazines = async (limit = 100) => {
   }
 }
 
-export const fulltextSearch = async (query, searchType = 'simple_query_string', limit = 20) => {
+export const fulltextSearch = async (query, searchType = 'simple_query_string', limit = 50) => {
   try {
     const response = await apiV1.get('/media-arts/fulltext-search', {
       params: { q: query, search_type: searchType, limit }

@@ -87,7 +87,7 @@ export default {
         // 1. まず通常検索
         let result = await searchMediaArtsWithRelated(
           originalQuery,
-          searchParams.limit || 20,
+          searchParams.limit || 50,
           searchParams.includeRelated,
           {
             sortTotalVolumes: searchParams.sortTotalVolumes || 'desc',
@@ -178,7 +178,7 @@ export default {
       showToast(`候補「${title}」で再検索します`, 'info')
       await handleSearch({
         query: title,
-        limit: 20,
+        limit: 50,
   includeRelated: true,
   sortTotalVolumes: 'desc',
   minTotalVolumes: 5

@@ -68,6 +68,7 @@
               step="0.05"
               class="limit-input"
             />
+            （0〜1）
           </label>
 
           <!-- <label class="option-label">
@@ -115,7 +116,7 @@
           <li>作品名で検索すると、関連する作者や作品を表示します</li>
           <li>ノードをドラッグして位置を調整できます</li>
           <!-- <li>検索深度を調整して、関係の範囲を変更できます</li> -->
-          <li>取得上限数を設定できます（※こちらは未完成です）</li>
+          <!-- <li>取得上限数を設定できます（※こちらは未完成です）</li> -->
         </ul>
       </div>
     </div>
@@ -132,7 +133,7 @@ export default {
     const searchQuery = ref('')
     const searchDepth = ref(2)
     const includeRelated = ref(true)
-    const searchLimit = ref(20)
+    const searchLimit = ref(30)
     const isComposing = ref(false)
     const similarityThreshold = ref(0.8)
     const embeddingMethod = ref('huggingface')
