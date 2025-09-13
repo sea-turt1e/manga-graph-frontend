@@ -529,16 +529,55 @@ export default {
       //   }
       // }
 
+      // ノードID -> タイプの逆引きマップを作成
+      const nodeTypeById = initialNodes.reduce((acc, n) => {
+        acc[n.data.id] = n.data.type
+        return acc
+      }, {})
+
+      // エッジの向きを補正する（要件）
+      // - 作品(work) ↔ 雑誌(magazine) は 作品 → 雑誌
+      // - 出版社(publisher) ↔ 掲載雑誌(magazine) は 出版社 → 掲載雑誌
+      const normalizeEdgeDirection = (edge) => {
+        const srcType = nodeTypeById[edge.source]
+        const tgtType = nodeTypeById[edge.target]
+        // どちらかタイプが不明な場合はそのまま
+        if (!srcType || !tgtType) return { source: edge.source, target: edge.target }
+
+        const isWorkMagazine = (a, b) => (a === 'work' && b === 'magazine') || (a === 'magazine' && b === 'work')
+        const isPublisherMagazine = (a, b) => (a === 'publisher' && b === 'magazine') || (a === 'magazine' && b === 'publisher')
+
+        // 作品→雑誌
+        if (isWorkMagazine(srcType, tgtType)) {
+          const source = srcType === 'work' ? edge.source : edge.target
+          const target = tgtType === 'magazine' ? edge.target : edge.source
+          return { source, target }
+        }
+
+        // 出版社→雑誌
+        if (isPublisherMagazine(srcType, tgtType)) {
+          const source = srcType === 'publisher' ? edge.source : edge.target
+          const target = tgtType === 'magazine' ? edge.target : edge.source
+          return { source, target }
+        }
+
+        // それ以外は変更しない
+        return { source: edge.source, target: edge.target }
+      }
+
       const elements = [
         ...initialNodes,
-        ...props.graphData.edges.map(edge => ({
-          data: {
-            id: edge.id,
-            source: edge.source,
-            target: edge.target,
-            type: edge.type
-          }
-        }))
+        ...props.graphData.edges.map(edge => {
+          const dir = normalizeEdgeDirection(edge)
+          return ({
+            data: {
+              id: edge.id,
+              source: dir.source,
+              target: dir.target,
+              type: edge.type
+            }
+          })
+        })
       ]
 
       cy.elements().remove()
