@@ -94,6 +94,7 @@ export default {
     const selectedNode = ref(null)
     let cy = null
 
+    // 柔らかいモダンパレット
     const nodeTypeColors = {
       work: '#4CAF50',
       author: '#2196F3', 
@@ -103,17 +104,17 @@ export default {
     }
 
     const edgeColors = {
-      created: '#2E7D32',
-      authored: '#2E7D32',
-      published: '#FFB74D',
-      published_by: '#CE93D8',
-      same_publisher: '#CE93D8',
-      belongs_to: '#FFB74D',
-      mentor_of: '#7B1FA2',
-      influenced_by: '#7B1FA2',
-      collaborated_with: '#1976D2',
-      worked_with: '#1976D2',
-      default: '#78909C'
+      created: '#16a34a',          // green-600
+      authored: '#16a34a',
+      published: '#f59e0b',        // amber-500
+      published_by: '#a855f7',     // purple-500
+      same_publisher: '#a855f7',
+      belongs_to: '#f59e0b',
+      mentor_of: '#7c3aed',        // violet-600
+      influenced_by: '#7c3aed',
+      collaborated_with: '#2563eb', // blue-600
+      worked_with: '#2563eb',
+      default: '#64748b'           // slate-500
     }
 
     const searchedWorkColor = null
@@ -155,31 +156,60 @@ export default {
             style: {
               'background-color': (ele) => nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown,
               'label': 'data(label)',
-              'width': 60,
-              'height': 60,
+              'width': 64,
+              'height': 64,
               'text-valign': 'bottom',
               'text-margin-y': 10,
-              'color': '#333',
+              'color': '#1f2937',
               'font-size': '12px',
-              'font-weight': 'bold',
+              'font-weight': '600',
               'text-wrap': 'wrap',
               'text-max-width': '120px',
-              'border-width': 3,
-              'border-color': (ele) => ele.data('isSearched') ? '#B71C1C' : '#fff',
+              'border-width': 2,
+              'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#e5e7eb',
+              'border-style': 'solid',
+              'shadow-blur': 12,
+              'shadow-color': '#94a3b8',
+              'shadow-opacity': 0.25,
+              'shadow-offset-x': 0,
+              'shadow-offset-y': 3,
               'overlay-opacity': 0
             }
           },
           // 検索ヒットノードの強調（太枠・グロー）
           {
-            selector: 'node[isSearched]'
-            ,
+            selector: 'node[isSearched]',
             style: {
               'border-width': 5,
-              'shadow-blur': 20,
-              'shadow-color': '#ff6b6b',
-              'shadow-opacity': 0.6,
+              'shadow-blur': 24,
+              'shadow-color': '#f87171',
+              'shadow-opacity': 0.65,
               'shadow-offset-x': 0,
               'shadow-offset-y': 0
+            }
+          },
+          // ホバー・近傍強調・非近傍ディミング
+          {
+            selector: 'node.hovered',
+            style: {
+              'border-color': '#22c55e',
+              'border-width': 4,
+              'shadow-blur': 28,
+              'shadow-color': '#22c55e',
+              'shadow-opacity': 0.55
+            }
+          },
+          {
+            selector: 'node.highlighted',
+            style: {
+              'border-color': '#60a5fa',
+              'border-width': 3
+            }
+          },
+          {
+            selector: 'node.dim',
+            style: {
+              'opacity': 0.25
             }
           },
           {
@@ -199,7 +229,7 @@ export default {
               'shape': 'rectangle',
               'label': '',
               'border-width': 2,
-              'border-color': (ele) => ele.data('isSearched') ? '#B71C1C' : '#ccc',
+              'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#e5e7eb',
               'border-style': 'solid',
               'overlay-opacity': 0
             }
@@ -212,14 +242,14 @@ export default {
               'shape': 'rectangle',
               'background-color': '#ffffff',
               'border-width': 2,
-              'border-color': (ele) => ele.data('isSearched') ? '#B71C1C' : '#ccc',
+              'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#e5e7eb',
               'border-style': 'solid',
               'label': 'data(label)',
               'text-valign': 'center',
               'text-halign': 'center',
               'color': '#333',
               'font-size': '9px',
-              'font-weight': 'bold',
+              'font-weight': '700',
               'text-wrap': 'wrap',
               'text-max-width': '75px',
               'overlay-opacity': 0
@@ -237,11 +267,11 @@ export default {
               'text-halign': 'center',
               'color': '#ffffff',
               'font-size': '10px',
-              'font-weight': 'bold',
+              'font-weight': '700',
               'text-wrap': 'wrap',
               'text-max-width': '75px',
-              'border-width': 3,
-              'border-color': (ele) => ele.data('isSearched') ? '#B71C1C' : '#fff',
+              'border-width': 2,
+              'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#ffffff',
               'overlay-opacity': 0
             }
           },
@@ -257,11 +287,11 @@ export default {
               'text-halign': 'center',
               'color': '#ffffff',
               'font-size': '10px',
-              'font-weight': 'bold',
+              'font-weight': '700',
               'text-wrap': 'wrap',
               'text-max-width': '75px',
-              'border-width': 3,
-              'border-color': (ele) => ele.data('isSearched') ? '#B71C1C' : '#fff',
+              'border-width': 2,
+              'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#ffffff',
               'overlay-opacity': 0
             }
           },
@@ -277,11 +307,11 @@ export default {
               'text-halign': 'center',
               'color': '#ffffff',
               'font-size': '10px',
-              'font-weight': 'bold',
+              'font-weight': '700',
               'text-wrap': 'wrap',
               'text-max-width': '75px',
-              'border-width': 3,
-              'border-color': (ele) => ele.data('isSearched') ? '#B71C1C' : '#fff',
+              'border-width': 2,
+              'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#ffffff',
               'overlay-opacity': 0
             }
           },
@@ -296,33 +326,46 @@ export default {
           {
             selector: 'edge',
             style: {
-              'width': 3,
+              'width': 3.5,
               'line-color': (ele) => edgeColors[ele.data('type')] || edgeColors.default,
               'target-arrow-color': (ele) => edgeColors[ele.data('type')] || edgeColors.default,
               'target-arrow-shape': 'triangle',
-              'curve-style': 'bezier',
-              'control-point-step-size': 40,
-              'opacity': 0.8
+              'arrow-scale': 1.2,
+              'curve-style': 'unbundled-bezier',
+              'control-point-distances': [40, -40],
+              'line-cap': 'round',
+              'opacity': 0.9,
+              'label': 'data(label)',
+              'font-size': 9,
+              'color': '#334155',
+              'text-rotation': 'autorotate',
+              'text-background-color': '#ffffff',
+              'text-background-opacity': 0.85,
+              'text-background-padding': 2,
+              'text-background-shape': 'round-rectangle',
+              'min-zoomed-font-size': 8
             }
           },
           {
             selector: 'edge[type="created"], edge[type="authored"]',
             style: {
               'line-style': 'solid',
-              'width': 3
+              'width': 3.5
             }
           },
           {
             selector: 'edge[type="published"], edge[type="published_by"], edge[type="belongs_to"]',
             style: {
               'line-style': 'solid',
-              'width': 3
+              'width': 3.5
             }
           },
           {
             selector: 'edge[type="same_publisher"]',
             style: {
-              'line-style': 'solid',
+              'line-style': 'dashed',
+              'line-dash-pattern': [6, 6],
+              'target-arrow-shape': 'none',
               'width': 3
             }
           },
@@ -336,8 +379,23 @@ export default {
           {
             selector: 'edge[type="collaborated_with"], edge[type="worked_with"]',
             style: {
-              'line-style': 'solid',
-              'width': 3
+              'line-style': 'dashed',
+              'line-dash-pattern': [8, 6],
+              'target-arrow-shape': 'none',
+              'width': 3.5
+            }
+          },
+          {
+            selector: 'edge.hovered',
+            style: {
+              'width': 4.5,
+              'opacity': 1
+            }
+          },
+          {
+            selector: 'edge.dim',
+            style: {
+              'opacity': 0.15
             }
           }
         ],
@@ -371,12 +429,32 @@ export default {
           type: node.data('type'),
           properties: node.data('properties')
         }
+        // 選択時に全体のディミングを解除
+        cy.elements().removeClass('hovered highlighted dim')
       })
 
       cy.on('tap', (evt) => {
         if (evt.target === cy) {
           selectedNode.value = null
+          cy.elements().removeClass('hovered highlighted dim')
         }
+      })
+
+      // ホバー時の近傍強調と非近傍ディミング
+      cy.on('mouseover', 'node', (evt) => {
+        const n = evt.target
+        const neighborhood = n.neighborhood().add(n)
+        cy.batch(() => {
+          cy.elements().removeClass('hovered highlighted dim')
+          n.addClass('hovered')
+          n.connectedEdges().addClass('hovered')
+          neighborhood.addClass('highlighted')
+          cy.elements().difference(neighborhood).addClass('dim')
+        })
+      })
+
+      cy.on('mouseout', 'node', () => {
+        cy.elements().removeClass('hovered highlighted dim')
       })
     }
 
@@ -612,6 +690,22 @@ export default {
         return { source: edge.source, target: edge.target }
       }
 
+      const getEdgeLabel = (type) => {
+        const labels = {
+          created: '制作',
+          authored: '著',
+          published: '掲載',
+          published_by: '出版',
+          same_publisher: '同出版社',
+          belongs_to: '掲載',
+          mentor_of: '師弟',
+          influenced_by: '影響',
+          collaborated_with: '共作',
+          worked_with: '共作'
+        }
+        return labels[type] || ''
+      }
+
       const elements = [
         ...initialNodes,
         ...props.graphData.edges.map(edge => {
@@ -621,7 +715,8 @@ export default {
               id: edge.id,
               source: dir.source,
               target: dir.target,
-              type: edge.type
+              type: edge.type,
+              label: getEdgeLabel(edge.type)
             }
           })
         })
