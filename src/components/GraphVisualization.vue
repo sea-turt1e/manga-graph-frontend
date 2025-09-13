@@ -348,14 +348,14 @@ export default {
           nodeDimensionsIncludeLabels: true,
           refresh: 30,
           fit: true,
-          padding: 50,
+          padding: 60,
           randomize: false,
-          nodeRepulsion: 4500,
-          idealEdgeLength: 100,
-          edgeElasticity: 0.45,
+          nodeRepulsion: 20000,
+          idealEdgeLength: 150,
+          edgeElasticity: 0.4,
           nestingFactor: 0.1,
           gravity: 0.25,
-          numIter: 2500,
+          numIter: 3000,
           tile: true,
           animate: 'during',
           animationDuration: 1000
@@ -378,6 +378,53 @@ export default {
           selectedNode.value = null
         }
       })
+    }
+
+    // 簡易的な衝突回避（バウンディングボックスが重なるノードを軽く押し分ける）
+    const resolveCollisions = (maxIter = 6, gap = 8) => {
+      if (!cy) return
+      const nodes = cy.nodes()
+      if (!nodes || nodes.length < 2) return
+
+      for (let iter = 0; iter < maxIter; iter++) {
+        let movedAny = false
+        for (let i = 0; i < nodes.length; i++) {
+          for (let j = i + 1; j < nodes.length; j++) {
+            const a = nodes[i]
+            const b = nodes[j]
+            if (!a || !b) continue
+            const bbA = a.boundingBox()
+            const bbB = b.boundingBox()
+
+            const overlapX = Math.min(bbA.x2, bbB.x2) - Math.max(bbA.x1, bbB.x1)
+            const overlapY = Math.min(bbA.y2, bbB.y2) - Math.max(bbA.y1, bbB.y1)
+
+            if (overlapX > 0 && overlapY > 0) {
+              // 最小押し出し距離（余白をプラス）
+              const pushX = overlapX + gap
+              const pushY = overlapY + gap
+
+              // 2軸のうち、押し出し距離が小さい方で分離（より自然）
+              const moveAlongX = pushX <= pushY
+
+              const posA = a.position()
+              const posB = b.position()
+
+              if (moveAlongX) {
+                const dir = posA.x <= posB.x ? -1 : 1
+                a.position({ x: posA.x + (dir * pushX) / 2, y: posA.y })
+                b.position({ x: posB.x - (dir * pushX) / 2, y: posB.y })
+              } else {
+                const dir = posA.y <= posB.y ? -1 : 1
+                a.position({ x: posA.x, y: posA.y + (dir * pushY) / 2 })
+                b.position({ x: posB.x, y: posB.y - (dir * pushY) / 2 })
+              }
+              movedAny = true
+            }
+          }
+        }
+        if (!movedAny) break
+      }
     }
 
     const updateGraph = async () => {
@@ -583,10 +630,12 @@ export default {
       cy.elements().remove()
       cy.add(elements)
       
-      if (elements.length > 0) {
+  if (elements.length > 0) {
         // レイアウト後に検索ヒットノードへフォーカス＆ハイライト
         cy.one('layoutstop', () => {
           try {
+    // まず衝突回避を実行して重なりを緩和
+    resolveCollisions(8, 10)
             const searched = cy.nodes().filter(n => !!n.data('isSearched'))
             if (searched && searched.length > 0) {
               // 検索ヒット集合へフォーカス
@@ -613,14 +662,15 @@ export default {
           nodeDimensionsIncludeLabels: true,
           refresh: 30,
           fit: true,
-          padding: 50,
-          randomize: true,
-          nodeRepulsion: 4500,
-          idealEdgeLength: 100,
-          edgeElasticity: 0.45,
+          padding: 60,
+          randomize: false,
+          nodeRepulsion: 20000,
+          idealEdgeLength: 150,
+          edgeElasticity: 0.4,
           nestingFactor: 0.1,
           gravity: 0.25,
-          numIter: 2500,
+          numIter: 3000,
+          tile: true,
           animate: 'during',
           animationDuration: 1000
         }).run()
@@ -638,11 +688,23 @@ export default {
         cy.layout({
           name: 'cose-bilkent',
           quality: 'default',
-          randomize: true,
+          nodeDimensionsIncludeLabels: true,
+          refresh: 30,
           fit: true,
+          padding: 60,
+          randomize: false,
+          nodeRepulsion: 20000,
+          idealEdgeLength: 150,
+          edgeElasticity: 0.4,
+          nestingFactor: 0.1,
+          gravity: 0.25,
+          numIter: 3000,
+          tile: true,
           animate: 'during',
           animationDuration: 1000
         }).run()
+        // レイアウト完了後にも衝突回避をかける
+        cy.one('layoutstop', () => resolveCollisions(8, 10))
       }
     }
 
