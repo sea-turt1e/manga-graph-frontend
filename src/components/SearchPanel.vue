@@ -65,7 +65,7 @@
               max="10" 
               class="limit-input"
             />
-            （最大10件）
+            （1~10）
           </label>
           
           <label class="option-label">
@@ -77,7 +77,7 @@
               max="100" 
               class="limit-input"
             />
-            （最大100件）
+            （1~100）
           </label>
 
           <label class="option-label">
@@ -335,7 +335,7 @@ export default {
 }
 
 .limit-input {
-  width: 80px;
+  width: 60px;
   padding: 6px 8px;
   margin-left: 8px;
   margin-right: 4px;

@@ -53,7 +53,7 @@ import { reactive, ref } from 'vue'
 import GraphVisualization from '../components/GraphVisualization.vue'
 import Header from '../components/Header.vue'
 import SearchPanel from '../components/SearchPanel.vue'
-import { searchTitleSimilarity, searchMediaArtsWithRelated } from '../services/api'
+import { searchMediaArtsWithRelated, searchTitleSimilarity } from '../services/api'
 
 export default {
   name: 'Home',
