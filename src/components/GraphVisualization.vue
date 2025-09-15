@@ -144,6 +144,31 @@ export default {
       return keyLabels[key] || key
     }
 
+    const isTouchDevice = () => {
+      if (typeof window === 'undefined') return false
+      return (
+        'ontouchstart' in window ||
+        (navigator && (navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0))
+      )
+    }
+
+    const clearHighlights = () => {
+      if (!cy) return
+      cy.elements().removeClass('hovered highlighted dim')
+    }
+
+    const highlightNeighborhood = (n) => {
+      if (!cy || !n) return
+      const neighborhood = n.neighborhood().add(n)
+      cy.batch(() => {
+        cy.elements().removeClass('hovered highlighted dim')
+        n.addClass('hovered')
+        n.connectedEdges().addClass('hovered')
+        neighborhood.addClass('highlighted')
+        cy.elements().difference(neighborhood).addClass('dim')
+      })
+    }
+
     const initializeCytoscape = () => {
       if (!graphContainer.value) return
 
@@ -429,32 +454,30 @@ export default {
           type: node.data('type'),
           properties: node.data('properties')
         }
-        // 選択時に全体のディミングを解除
-        cy.elements().removeClass('hovered highlighted dim')
+        // タッチデバイスではタップ時にホバー同等の強調を適用
+        if (isTouchDevice()) {
+          highlightNeighborhood(node)
+        } else {
+          // それ以外（デスクトップのクリックなど）はディミング解除のみ
+          clearHighlights()
+        }
       })
 
       cy.on('tap', (evt) => {
         if (evt.target === cy) {
           selectedNode.value = null
-          cy.elements().removeClass('hovered highlighted dim')
+          clearHighlights()
         }
       })
 
       // ホバー時の近傍強調と非近傍ディミング
       cy.on('mouseover', 'node', (evt) => {
         const n = evt.target
-        const neighborhood = n.neighborhood().add(n)
-        cy.batch(() => {
-          cy.elements().removeClass('hovered highlighted dim')
-          n.addClass('hovered')
-          n.connectedEdges().addClass('hovered')
-          neighborhood.addClass('highlighted')
-          cy.elements().difference(neighborhood).addClass('dim')
-        })
+        highlightNeighborhood(n)
       })
 
       cy.on('mouseout', 'node', () => {
-        cy.elements().removeClass('hovered highlighted dim')
+        clearHighlights()
       })
     }
 
