@@ -11,7 +11,7 @@
             @keyup.enter="handleKeyUp"
             @compositionstart="isComposing = true"
             @compositionend="handleCompositionEnd"
-            type="text" 
+            type="text"
             placeholder="例：ONE PIECE"
             class="search-input"
           />
@@ -44,6 +44,28 @@
               class="related-checkbox"
             />
             関連作品・作者も表示
+          </label>
+
+          <!-- 同出版社・他誌情報の表示制御 -->
+          <label class="option-checkbox">
+            <input 
+              v-model="includeSamePublisherOtherMagazines" 
+              type="checkbox"
+              class="related-checkbox"
+            />
+            同出版社の他誌情報も表示
+          </label>
+
+          <label class="option-label">
+            同出版社・他誌の上限:
+            <input 
+              v-model.number="samePublisherOtherMagazinesLimit" 
+              type="number" 
+              min="0" 
+              max="10" 
+              class="limit-input"
+            />
+            （最大10件）
           </label>
           
           <label class="option-label">
@@ -139,6 +161,8 @@ export default {
     const embeddingMethod = ref('huggingface')
   const minTotalVolumes = ref(5)
   const sortTotalVolumes = ref('desc')
+  const includeSamePublisherOtherMagazines = ref(true)
+  const samePublisherOtherMagazinesLimit = ref(5)
 
     const handleSearch = () => {
       if (searchQuery.value.trim()) {
@@ -150,7 +174,9 @@ export default {
           similarityThreshold: similarityThreshold.value,
           embeddingMethod: embeddingMethod.value,
           minTotalVolumes: Math.max(0, Number(minTotalVolumes.value) || 0),
-          sortTotalVolumes: sortTotalVolumes.value
+          sortTotalVolumes: sortTotalVolumes.value,
+          includeSamePublisherOtherMagazines: !!includeSamePublisherOtherMagazines.value,
+          samePublisherOtherMagazinesLimit: Math.min(10, Math.max(0, Number(samePublisherOtherMagazinesLimit.value) || 0))
         })
       }
     }
@@ -186,6 +212,8 @@ export default {
       embeddingMethod,
   minTotalVolumes,
   sortTotalVolumes,
+  includeSamePublisherOtherMagazines,
+  samePublisherOtherMagazinesLimit,
       handleSearch,
       handleKeyDown,
       handleKeyUp,

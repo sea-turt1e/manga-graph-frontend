@@ -91,7 +91,9 @@ export default {
           searchParams.includeRelated,
           {
             sortTotalVolumes: searchParams.sortTotalVolumes || 'desc',
-            minTotalVolumes: (typeof searchParams.minTotalVolumes === 'number' ? searchParams.minTotalVolumes : 5)
+            minTotalVolumes: (typeof searchParams.minTotalVolumes === 'number' ? searchParams.minTotalVolumes : 5),
+            includeSamePublisherOtherMagazines: (typeof searchParams.includeSamePublisherOtherMagazines === 'boolean' ? searchParams.includeSamePublisherOtherMagazines : true),
+            samePublisherOtherMagazinesLimit: (typeof searchParams.samePublisherOtherMagazinesLimit === 'number' ? searchParams.samePublisherOtherMagazinesLimit : 5)
           }
         )
 
@@ -181,7 +183,9 @@ export default {
         limit: 50,
   includeRelated: true,
   sortTotalVolumes: 'desc',
-  minTotalVolumes: 5
+  minTotalVolumes: 5,
+  includeSamePublisherOtherMagazines: true,
+  samePublisherOtherMagazinesLimit: 5
       })
       // 候補から選択したらポップアップは閉じる
       showFuzzyPopup.value = false

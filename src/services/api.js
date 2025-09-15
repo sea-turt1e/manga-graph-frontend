@@ -112,7 +112,9 @@ export const searchMediaArtsWithRelated = async (
   try {
     const {
       sortTotalVolumes = 'desc',
-      minTotalVolumes = 5
+      minTotalVolumes = 5,
+      includeSamePublisherOtherMagazines = true,
+      samePublisherOtherMagazinesLimit = 5
     } = options || {}
 
     const response = await apiV1.get('/neo4j/search', {
@@ -121,7 +123,9 @@ export const searchMediaArtsWithRelated = async (
         limit,
         include_related: includeRelated,
         sort_total_volumes: sortTotalVolumes,
-        min_total_volumes: minTotalVolumes
+        min_total_volumes: minTotalVolumes,
+        include_same_publisher_other_magazines: includeSamePublisherOtherMagazines,
+        same_publisher_other_magazines_limit: Math.min(10, Math.max(0, Number(samePublisherOtherMagazinesLimit) || 0))
       }
     })
     return response.data
