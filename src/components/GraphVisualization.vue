@@ -750,14 +750,17 @@ export default {
       
   if (elements.length > 0) {
         // レイアウト後に検索ヒットノードへフォーカス＆ハイライト
-        cy.one('layoutstop', () => {
+    cy.one('layoutstop', () => {
           try {
     // まず衝突回避を実行して重なりを緩和
     resolveCollisions(8, 10)
             const searched = cy.nodes().filter(n => !!n.data('isSearched'))
             if (searched && searched.length > 0) {
-              // 検索ヒット集合へフォーカス
-              cy.fit(searched, 80)
+      // 検索ヒット＋その近傍ノードも含めてフォーカス
+      const neighborNodes = searched.neighborhood().nodes()
+      const focusElements = searched.union(neighborNodes)
+      // 近傍も数個見えるようパディングを広めに確保
+      cy.fit(focusElements, 100)
               // 軽いアニメーションで注意を引く
               searched.forEach(n => {
                 const type = n.data('type')
