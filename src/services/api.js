@@ -112,7 +112,9 @@ export const searchMediaArtsWithRelated = async (
   try {
     const {
       sortTotalVolumes = 'desc',
-      minTotalVolumes = 5
+      minTotalVolumes = 5,
+      includeSamePublisherOtherMagazines = true,
+      samePublisherOtherMagazinesLimit = 5
     } = options || {}
 
     const response = await apiV1.get('/neo4j/search', {
@@ -121,7 +123,9 @@ export const searchMediaArtsWithRelated = async (
         limit,
         include_related: includeRelated,
         sort_total_volumes: sortTotalVolumes,
-        min_total_volumes: minTotalVolumes
+        min_total_volumes: minTotalVolumes,
+        include_same_publisher_other_magazines: includeSamePublisherOtherMagazines,
+        same_publisher_other_magazines_limit: Math.min(10, Math.max(0, Number(samePublisherOtherMagazinesLimit) || 0))
       }
     })
     return response.data
@@ -139,8 +143,19 @@ export const searchMangaFuzzy = async (
   similarityThreshold = 0.8,
   embeddingMethod = 'huggingface'
 ) => {
+  // 互換維持: 旧関数名で呼ばれても新エンドポイントにフォワード
+  return searchTitleSimilarity(query, limit, similarityThreshold, embeddingMethod)
+}
+
+// 新: タイトルベクトル類似検索API（/api/v1/neo4j/vector/title-similarity）
+export const searchTitleSimilarity = async (
+  query,
+  limit = 5,
+  similarityThreshold = 0.8,
+  embeddingMethod = 'huggingface'
+) => {
   try {
-    const response = await apiV1.get('/neo4j/search-fuzzy', {
+    const response = await apiV1.get('/neo4j/vector/title-similarity', {
       params: {
         q: query,
         limit,
@@ -150,7 +165,7 @@ export const searchMangaFuzzy = async (
     })
     return response.data
   } catch (error) {
-    console.error('Fuzzy search API error:', error)
+    console.error('Title similarity API error:', error)
     throw error
   }
 }

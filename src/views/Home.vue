@@ -53,7 +53,7 @@ import { reactive, ref } from 'vue'
 import GraphVisualization from '../components/GraphVisualization.vue'
 import Header from '../components/Header.vue'
 import SearchPanel from '../components/SearchPanel.vue'
-import { searchMangaFuzzy, searchMediaArtsWithRelated } from '../services/api'
+import { searchMediaArtsWithRelated, searchTitleSimilarity } from '../services/api'
 
 export default {
   name: 'Home',
@@ -91,7 +91,9 @@ export default {
           searchParams.includeRelated,
           {
             sortTotalVolumes: searchParams.sortTotalVolumes || 'desc',
-            minTotalVolumes: (typeof searchParams.minTotalVolumes === 'number' ? searchParams.minTotalVolumes : 5)
+            minTotalVolumes: (typeof searchParams.minTotalVolumes === 'number' ? searchParams.minTotalVolumes : 5),
+            includeSamePublisherOtherMagazines: (typeof searchParams.includeSamePublisherOtherMagazines === 'boolean' ? searchParams.includeSamePublisherOtherMagazines : true),
+            samePublisherOtherMagazinesLimit: (typeof searchParams.samePublisherOtherMagazinesLimit === 'number' ? searchParams.samePublisherOtherMagazinesLimit : 5)
           }
         )
 
@@ -101,19 +103,16 @@ export default {
   if (!hasData) {
           console.log('[Fallback] No direct results. Trying fuzzy search for canonical title...')
           showToast('直接ヒットが無かったため曖昧検索候補を表示します', 'warn')
-          const fuzzy = await searchMangaFuzzy(
+          const fuzzy = await searchTitleSimilarity(
             originalQuery,
             5,
             searchParams.similarityThreshold || 0.8,
             searchParams.embeddingMethod || 'huggingface'
           )
-          const fuzzyNodes = fuzzy?.nodes || []
-          // 候補リスト（title & similarity_score）整形
-          fuzzyCandidates.value = fuzzyNodes
-            .map(n => ({
-              title: n.title || n.properties?.title || '',
-              score: n.properties?.similarity_score || n.similarity_score
-            }))
+          const fuzzyResults = fuzzy?.results || []
+          // 候補リスト（title & similarity_score）整形（新APIレスポンス形式に対応）
+          fuzzyCandidates.value = fuzzyResults
+            .map(r => ({ title: r.title, score: r.similarity_score }))
             .filter(c => c.title)
             .sort((a, b) => (b.score || 0) - (a.score || 0))
           if (fuzzyCandidates.value.length === 0) {
@@ -181,7 +180,9 @@ export default {
         limit: 50,
   includeRelated: true,
   sortTotalVolumes: 'desc',
-  minTotalVolumes: 5
+  minTotalVolumes: 5,
+  includeSamePublisherOtherMagazines: true,
+  samePublisherOtherMagazinesLimit: 5
       })
       // 候補から選択したらポップアップは閉じる
       showFuzzyPopup.value = false
