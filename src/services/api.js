@@ -143,8 +143,19 @@ export const searchMangaFuzzy = async (
   similarityThreshold = 0.8,
   embeddingMethod = 'huggingface'
 ) => {
+  // 互換維持: 旧関数名で呼ばれても新エンドポイントにフォワード
+  return searchTitleSimilarity(query, limit, similarityThreshold, embeddingMethod)
+}
+
+// 新: タイトルベクトル類似検索API（/api/v1/neo4j/vector/title-similarity）
+export const searchTitleSimilarity = async (
+  query,
+  limit = 5,
+  similarityThreshold = 0.8,
+  embeddingMethod = 'huggingface'
+) => {
   try {
-    const response = await apiV1.get('/neo4j/search-fuzzy', {
+    const response = await apiV1.get('/neo4j/vector/title-similarity', {
       params: {
         q: query,
         limit,
@@ -154,7 +165,7 @@ export const searchMangaFuzzy = async (
     })
     return response.data
   } catch (error) {
-    console.error('Fuzzy search API error:', error)
+    console.error('Title similarity API error:', error)
     throw error
   }
 }
