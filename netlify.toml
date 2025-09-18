@@ -5,6 +5,8 @@
   # ビルド後の公開ディレクトリ
   publish = "dist"
 
+  functions = "netlify/functions"
+
 # SPAルーティング対応
 [[redirects]]
   from = "/*"
