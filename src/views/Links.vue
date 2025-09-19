@@ -55,7 +55,9 @@
                 rel="noopener noreferrer"
                 class="link-card"
               >
-                <div class="link-icon">📖</div>
+                <div class="link-icon zenn-logo">
+                  <img src="https://cdn.simpleicons.org/zenn/ffffff" alt="Zenn" class="link-img" />
+                </div>
                 <div class="link-content">
                   <h3>Zenn解説記事</h3>
                   <p>漫画のグラフDBに関する解説記事</p>
@@ -63,7 +65,7 @@
                 <div class="external-icon">↗</div>
               </a>
               
-              <a 
+              <!-- <a 
                 href="" 
                 target="_blank" 
                 rel="noopener noreferrer"
@@ -75,7 +77,7 @@
                   <p>漫画のグラフDBに関するスライド資料</p>
                 </div>
                 <div class="external-icon">↗</div>
-              </a>
+              </a> -->
               <a 
                 href="https://github.com/sea-turt1e/manga-graph" 
                 target="_blank" 
@@ -155,7 +157,7 @@
 
 <script>
 import graphCover from '../assets/graph-white-cover-image.png';
-import portfolioImage from '../assets/portfolio-image.png';
+import portfolioImage from '../assets/portfolio-image.jpeg';
 import Header from '../components/Header.vue';
 
 export default {
@@ -304,6 +306,17 @@ export default {
   height: 44px;
   object-fit: contain;
   border-radius: 8px;
+}
+
+/* Zenn icon variant */
+.link-icon.zenn-logo {
+  background: #3EA8FF; /* Zenn brand color */
+}
+
+.link-icon.zenn-logo .link-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 0; /* keep Zenn logomark crisp */
 }
 
 .link-content {
