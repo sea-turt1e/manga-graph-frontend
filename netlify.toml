@@ -16,3 +16,7 @@
 # 環境変数の設定
 [build.environment]
   NODE_VERSION = "18"
+  # 本番のクライアントは必ず Netlify Functions のプロキシを使う
+  VITE_API_BASE_PREFIX = "/.netlify/functions/proxy"
+  VITE_API_PATH_PREFIX = "/api"
+  VITE_ALLOW_DIRECT_BACKEND = "false"

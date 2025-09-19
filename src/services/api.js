@@ -3,13 +3,24 @@ import axios from 'axios'
 // API設定
 const API_VERSION = '1'
 
-// 環境変数からベースURL/パスを取得（優先順位: VITE_API_BASE_URL → VITE_API_BASE_PREFIX + VITE_API_PATH_PREFIX → デフォルト）
-// 例:
-//  - 直指定: VITE_API_BASE_URL="http://localhost:8000" → http://localhost:8000/api/v1/...
-//  - プレフィックス+パス: VITE_API_BASE_PREFIX='' & VITE_API_PATH_PREFIX='/api' → /api/v1/...（Vite proxyで8000へ）
-//  - 本番デフォルト: '/.netlify/functions/proxy' + '/api' → /.netlify/functions/proxy/api/v1/...
-const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE_PREFIX
-const API_BASE_PREFIX = ((rawBaseUrl ?? '/.netlify/functions/proxy').toString()).replace(/\/+$/, '')
+// 環境変数からベースURL/パスを取得
+// - 開発(dev): VITE_API_BASE_URL → VITE_API_BASE_PREFIX → デフォルト('/.netlify/functions/proxy')
+// - 本番(prod): 原則プロキシ強制。直叩きを許可する場合は VITE_ALLOW_DIRECT_BACKEND='true' を設定し VITE_API_BASE_URL を使用
+const isProd = import.meta.env.PROD
+const allowDirectBackend = (import.meta.env.VITE_ALLOW_DIRECT_BACKEND || '').toString().toLowerCase() === 'true'
+
+let resolvedBasePrefix
+if (isProd) {
+  if (allowDirectBackend && import.meta.env.VITE_API_BASE_URL) {
+    resolvedBasePrefix = import.meta.env.VITE_API_BASE_URL
+  } else {
+    resolvedBasePrefix = import.meta.env.VITE_API_BASE_PREFIX || '/.netlify/functions/proxy'
+  }
+} else {
+  resolvedBasePrefix = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE_PREFIX || '/.netlify/functions/proxy'
+}
+
+const API_BASE_PREFIX = (resolvedBasePrefix.toString()).replace(/\/+$/, '')
 let API_PATH_PREFIX = (import.meta.env.VITE_API_PATH_PREFIX ?? '/api').toString()
 // 末尾スラッシュは削除、先頭スラッシュは必ず付与
 API_PATH_PREFIX = `/${API_PATH_PREFIX.replace(/^\/+/, '').replace(/\/+$/, '')}`
