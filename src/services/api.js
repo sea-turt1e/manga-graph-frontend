@@ -2,21 +2,30 @@ import axios from 'axios'
 
 // API設定
 const API_VERSION = '1'
-// 直接バックエンドURLではなく Netlify Functions のプロキシを利用
-export const API_BASE_URL = '/.netlify/functions/proxy'
 
-// 現在のバックエンドが v1 対応しているかチェックして適切なbaseURLを使用
+// 環境変数からベースURL/パスを取得（優先順位: VITE_API_BASE_URL → VITE_API_BASE_PREFIX + VITE_API_PATH_PREFIX → デフォルト）
+// 例:
+//  - 直指定: VITE_API_BASE_URL="http://localhost:8000" → http://localhost:8000/api/v1/...
+//  - プレフィックス+パス: VITE_API_BASE_PREFIX='' & VITE_API_PATH_PREFIX='/api' → /api/v1/...（Vite proxyで8000へ）
+//  - 本番デフォルト: '/.netlify/functions/proxy' + '/api' → /.netlify/functions/proxy/api/v1/...
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE_PREFIX
+const API_BASE_PREFIX = ((rawBaseUrl ?? '/.netlify/functions/proxy').toString()).replace(/\/+$/, '')
+let API_PATH_PREFIX = (import.meta.env.VITE_API_PATH_PREFIX ?? '/api').toString()
+// 末尾スラッシュは削除、先頭スラッシュは必ず付与
+API_PATH_PREFIX = `/${API_PATH_PREFIX.replace(/^\/+/, '').replace(/\/+$/, '')}`
+
+// レガシーAPI（/search など）向けクライアント: ベースはプレフィックスのみにして、末尾のパスは各呼び出しに委ねる
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_BASE_PREFIX,
   timeout: 60000,
   headers: {
     'Content-Type': 'application/json'
   }
 })
 
-// v1 API用の設定
+// v1 API用のクライアント（例: <prefix>/api/v1/...）
 const apiV1 = axios.create({
-  baseURL: `${API_BASE_URL}/api/v${API_VERSION}`,
+  baseURL: `${API_BASE_PREFIX}${API_PATH_PREFIX}/v${API_VERSION}`,
   timeout: 60000,
   headers: {
     'Content-Type': 'application/json'
@@ -32,7 +41,8 @@ export const searchManga = async (searchRequest) => {
       return response.data
     } catch (v1Error) {
       console.log('v1 API not available, falling back to legacy API')
-      const response = await api.post('/search', searchRequest)
+      // 旧APIは /api/search を想定
+      const response = await api.post(`${API_PATH_PREFIX}/search`, searchRequest)
       return response.data
     }
   } catch (error) {
@@ -261,7 +271,7 @@ export const healthCheck = async () => {
   try {
     // まず /health を試し、失敗したら / を試す
     try {
-      const response = await axios.get(`${API_BASE_URL}/health`)
+      const response = await axios.get(`${API_BASE_PREFIX}/health`)
       return response.data
     } catch (healthError) {
       const response = await api.get('/')
