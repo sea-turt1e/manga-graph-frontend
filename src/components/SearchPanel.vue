@@ -46,6 +46,18 @@
             関連作品・作者も表示
           </label>
 
+          <label class="option-label">
+            同誌内の取得上限:
+            <input 
+              v-model.number="searchLimit" 
+              type="number" 
+              min="1" 
+              max="100" 
+              class="limit-input"
+            />
+            （1~100）
+          </label>
+
           <!-- 同出版社・他誌情報の表示制御 -->
           <label class="option-checkbox">
             <input 
@@ -66,18 +78,6 @@
               class="limit-input"
             />
             （1~10）
-          </label>
-          
-          <label class="option-label">
-            取得件数上限:
-            <input 
-              v-model.number="searchLimit" 
-              type="number" 
-              min="1" 
-              max="100" 
-              class="limit-input"
-            />
-            （1~100）
           </label>
 
           <label class="option-label">
