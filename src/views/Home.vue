@@ -67,7 +67,9 @@ export default {
       nodes: [],
       edges: []
     })
-    const loading = ref(false)
+  const loading = ref(false)
+  // 直近の検索オプションを保持して、/title-similarity 後の /search で引き継ぐ
+  const lastSearchOptions = ref({})
   const fuzzyCandidates = ref([])
   const showFuzzyPopup = ref(false)
     const toast = reactive({ visible: false, message: '', type: 'info', timer: null })
@@ -83,6 +85,27 @@ export default {
     const handleSearch = async (searchParams) => {
       loading.value = true
       const originalQuery = searchParams.query
+      // 受け取ったオプションを保存（クエリ以外）
+      const {
+        limit,
+        includeRelated,
+        sortTotalVolumes,
+        minTotalVolumes,
+        includeSamePublisherOtherMagazines,
+        samePublisherOtherMagazinesLimit,
+        similarityThreshold,
+        embeddingMethod
+      } = searchParams || {}
+      lastSearchOptions.value = {
+        limit,
+        includeRelated,
+        sortTotalVolumes,
+        minTotalVolumes,
+        includeSamePublisherOtherMagazines,
+        samePublisherOtherMagazinesLimit,
+        similarityThreshold,
+        embeddingMethod
+      }
       try {
         // 1. まず通常検索
         let result = await searchMediaArtsWithRelated(
@@ -175,14 +198,10 @@ export default {
     const handleSelectFuzzy = async ({ title }) => {
       if (!title) return
       showToast(`候補「${title}」で再検索します`, 'info')
+      // 直近の検索オプションを引き継いで再検索
       await handleSearch({
         query: title,
-        limit: 50,
-  includeRelated: true,
-  sortTotalVolumes: 'desc',
-  minTotalVolumes: 5,
-  includeSamePublisherOtherMagazines: true,
-  samePublisherOtherMagazinesLimit: 5
+        ...lastSearchOptions.value
       })
       // 候補から選択したらポップアップは閉じる
       showFuzzyPopup.value = false
@@ -200,6 +219,7 @@ export default {
     return {
       graphData,
       loading,
+  lastSearchOptions,
       fuzzyCandidates,
       toast,
       handleSearch,
