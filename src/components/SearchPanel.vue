@@ -43,11 +43,11 @@
               type="checkbox"
               class="related-checkbox"
             />
-            関連作品・作者も表示
+            関連作品を表示
           </label>
 
           <label class="option-label">
-            同誌内の取得上限:
+            同誌内の最大件数:
             <input 
               v-model.number="searchLimit" 
               type="number" 
@@ -65,11 +65,11 @@
               type="checkbox"
               class="related-checkbox"
             />
-            同出版社の他誌情報も表示
+            同出版社の他誌も表示
           </label>
 
           <label class="option-label">
-            同出版社・他誌の上限:
+            他誌の最大件数:
             <input 
               v-model.number="samePublisherOtherMagazinesLimit" 
               type="number" 
@@ -114,7 +114,7 @@
           </label>
 
           <label class="option-label">
-            巻数ソート順:
+            巻数並び順:
             <select v-model="sortTotalVolumes" class="embedding-select">
               <option value="desc">desc</option>
               <option value="asc">asc</option>
@@ -155,7 +155,7 @@ export default {
     const searchQuery = ref('')
     const searchDepth = ref(2)
     const includeRelated = ref(true)
-    const searchLimit = ref(30)
+    const searchLimit = ref(10)
     const isComposing = ref(false)
     const similarityThreshold = ref(0.8)
     const embeddingMethod = ref('huggingface')
