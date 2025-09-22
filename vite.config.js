@@ -24,6 +24,22 @@ export default defineConfig(({ mode }) => {
               proxyReq.setHeader('x-api-key', apiKey)
             })
           }
+        },
+        // Support Netlify Functions-like prefix in dev. We rewrite the prefix away
+        // so that `/.netlify/functions/proxy/...` is forwarded to `<target>/...`.
+        '/.netlify/functions/proxy': {
+          target,
+          changeOrigin: true,
+          secure: false,
+          logLevel: 'debug',
+          headers: apiKey ? { 'x-api-key': apiKey } : undefined,
+          rewrite: (path) => path.replace(/^\/\.netlify\/functions\/proxy/, ''),
+          configure: (proxy) => {
+            if (!proxy || !apiKey) return
+            proxy.on('proxyReq', (proxyReq) => {
+              proxyReq.setHeader('x-api-key', apiKey)
+            })
+          }
         }
       }
     }

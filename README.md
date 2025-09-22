@@ -65,13 +65,14 @@ npm run preview
 
 プロジェクトルートに`.env`ファイルを作成し、以下の変数を設定してください：
 
-```env
-VITE_API_BASE_URL=http://localhost:8000
+```bash
+VITE_API_BASE_URL="http://localhost:8000"
+MY_API_KEY="your_api_key_for_authentication_of_api_requests"
 ```
 
 ## プロジェクト構成
 
-```
+```bash
 src/
 ├── App.vue                 # メインアプリケーションコンポーネント
 ├── main.js                 # エントリーポイント

@@ -4,7 +4,8 @@ import axios from 'axios'
 const API_VERSION = '1'
 
 // 環境変数からベースURL/パスを取得
-// - 開発(dev): VITE_API_BASE_URL → VITE_API_BASE_PREFIX → デフォルト('/.netlify/functions/proxy')
+// - 開発(dev): 原則プロキシ('/.netlify/functions/proxy')を使う。
+//               直叩きを許可する場合のみ VITE_ALLOW_DIRECT_BACKEND='true' かつ VITE_API_BASE_URL が設定されているときにそれを利用。
 // - 本番(prod): 原則プロキシ強制。直叩きを許可する場合は VITE_ALLOW_DIRECT_BACKEND='true' を設定し VITE_API_BASE_URL を使用
 const isProd = import.meta.env.PROD
 const allowDirectBackend = (import.meta.env.VITE_ALLOW_DIRECT_BACKEND || '').toString().toLowerCase() === 'true'
@@ -17,7 +18,12 @@ if (isProd) {
     resolvedBasePrefix = import.meta.env.VITE_API_BASE_PREFIX || '/.netlify/functions/proxy'
   }
 } else {
-  resolvedBasePrefix = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE_PREFIX || '/.netlify/functions/proxy'
+  // dev: prefer proxy unless explicitly allowed to hit backend directly
+  if (allowDirectBackend && import.meta.env.VITE_API_BASE_URL) {
+    resolvedBasePrefix = import.meta.env.VITE_API_BASE_URL
+  } else {
+    resolvedBasePrefix = import.meta.env.VITE_API_BASE_PREFIX || '/.netlify/functions/proxy'
+  }
 }
 
 const API_BASE_PREFIX = (resolvedBasePrefix.toString()).replace(/\/+$/, '')
