@@ -715,10 +715,10 @@ export default {
 
       const getEdgeLabel = (type) => {
         const labels = {
-          created: '制作',
+          created: '創作',
           authored: '著',
           published: '掲載',
-          published_by: '出版',
+          published_by: '発行',
           same_publisher: '同出版社',
           belongs_to: '掲載',
           mentor_of: '師弟',
