@@ -132,15 +132,15 @@
         
       </div>
 
-      <div class="search-tips">
+      <!-- <div class="search-tips">
         <h3>使い方</h3>
         <ul>
           <li>作品名で検索すると、関連する作者や作品を表示します</li>
-          <li>ノードをドラッグして位置を調整できます</li>
+          <li>ノードをドラッグして位置を調整できます</li> -->
           <!-- <li>検索深度を調整して、関係の範囲を変更できます</li> -->
           <!-- <li>取得上限数を設定できます（※こちらは未完成です）</li> -->
-        </ul>
-      </div>
+        <!-- </ul>
+      </div> -->
     </div>
   </div>
 </template>
@@ -231,7 +231,7 @@ export default {
   backdrop-filter: blur(10px);
   border-right: 1px solid rgba(255, 255, 255, 0.2);
   padding: 20px;
-  overflow-y: auto;
+  overflow-y: auto; /* 縦スクロールを常に許可 */
   box-shadow: 2px 0 20px rgba(0, 0, 0, 0.1);
 }
 
@@ -377,7 +377,7 @@ export default {
 /* 候補タイトル表示は親ビュー側で表示するため、このコンポーネントからは削除 */
 
 .search-tips {
-  flex: 1;
+  flex: 1 0 auto; /* コンテンツ量に応じて伸縮 */
   padding: 20px;
   background: rgba(255, 255, 255, 0.7);
   border-radius: 8px;
@@ -427,6 +427,11 @@ export default {
 
   .search-tips {
     display: none;
+  }
+
+  .sidebar-source {
+    position: static; /* モバイルでは自然なフロー内表示 */
+    padding-bottom: 8px;
   }
 
   .search-title {

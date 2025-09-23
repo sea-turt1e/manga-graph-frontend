@@ -4,7 +4,7 @@
       <h1>出典</h1>
       <nav class="sources-nav" aria-label="出典ページ内ナビゲーション">
         <router-link class="nav-btn" to="/">トップへ戻る</router-link>
-        <router-link class="nav-btn" to="/links">Linksへ</router-link>
+        <router-link class="nav-btn" to="/links">関連リンク</router-link>
       </nav>
     </header>
     <p>このアプリケーションは、以下のデータセットを使用しています：</p>

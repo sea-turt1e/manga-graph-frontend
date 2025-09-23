@@ -9,6 +9,7 @@
         <nav class="navigation">
           <router-link to="/" class="nav-link">ホーム</router-link>
           <router-link to="/links" class="nav-link">関連リンク</router-link>
+          <router-link to="/sources" class="nav-link" aria-label="出典ページへ">出典</router-link>
         </nav>
       </div>
       <p class="subtitle">メディア芸術データベースを活用した漫画関係図</p>
