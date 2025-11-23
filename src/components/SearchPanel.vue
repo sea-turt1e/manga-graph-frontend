@@ -26,28 +26,8 @@
         </div>
         
         <div class="search-options">
-          <!-- <label class="option-label">
-            <input 
-              v-model="searchDepth" 
-              type="range" 
-              min="1" 
-              max="3" 
-              class="depth-slider"
-            />
-            検索深度: {{ searchDepth }}
-          </label> -->
-          
-          <label class="option-checkbox">
-            <input 
-              v-model="includeRelated" 
-              type="checkbox"
-              class="related-checkbox"
-            />
-            関連作品を表示
-          </label>
-
           <label class="option-label">
-            同誌内の最大件数:
+            取得上限:
             <input 
               v-model.number="searchLimit" 
               type="number" 
@@ -55,70 +35,7 @@
               max="100" 
               class="limit-input"
             />
-            （1~100）
-          </label>
-
-          <!-- 同出版社・他誌情報の表示制御 -->
-          <label class="option-checkbox">
-            <input 
-              v-model="includeSamePublisherOtherMagazines" 
-              type="checkbox"
-              class="related-checkbox"
-            />
-            同出版社の他誌も表示
-          </label>
-
-          <label class="option-label">
-            他誌の最大件数:
-            <input 
-              v-model.number="samePublisherOtherMagazinesLimit" 
-              type="number" 
-              min="0" 
-              max="10" 
-              class="limit-input"
-            />
-            （1~10）
-          </label>
-
-          <label class="option-label">
-            類似度閾値:
-            <input
-              v-model.number="similarityThreshold"
-              type="number"
-              min="0"
-              max="1"
-              step="0.05"
-              class="limit-input"
-            />
-            （0〜1）
-          </label>
-
-          <!-- <label class="option-label">
-            埋め込み方式:
-            <select v-model="embeddingMethod" class="embedding-select">
-              <option value="huggingface">huggingface</option>
-              <option value="hash">hash</option>
-              <option value="openai">openai</option>
-            </select>
-          </label> -->
-
-          <!-- 新規: 巻数でのフィルタ＆ソート -->
-          <label class="option-label">
-            最小巻数:
-            <input
-              v-model.number="minTotalVolumes"
-              type="number"
-              min="0"
-              class="limit-input"
-            />
-          </label>
-
-          <label class="option-label">
-            巻数並び順:
-            <select v-model="sortTotalVolumes" class="embedding-select">
-              <option value="desc">desc</option>
-              <option value="asc">asc</option>
-            </select>
+            （1〜100）
           </label>
         </div>
         
@@ -153,30 +70,15 @@ export default {
   emits: ['search', 'clear'],
   setup(props, { emit }) {
     const searchQuery = ref('')
-    const searchDepth = ref(2)
-    const includeRelated = ref(true)
-    const searchLimit = ref(10)
+    const searchLimit = ref(50)
     const isComposing = ref(false)
-    const similarityThreshold = ref(0.8)
-    const embeddingMethod = ref('huggingface')
-  const minTotalVolumes = ref(5)
-  const sortTotalVolumes = ref('desc')
-  const includeSamePublisherOtherMagazines = ref(true)
-  const samePublisherOtherMagazinesLimit = ref(5)
 
     const handleSearch = () => {
       if (searchQuery.value.trim()) {
+        const limitValue = Math.min(100, Math.max(1, Number(searchLimit.value) || 50))
         emit('search', {
           query: searchQuery.value.trim(),
-          depth: searchDepth.value,
-          includeRelated: includeRelated.value,
-          limit: Math.min(Math.max(1, searchLimit.value), 100),
-          similarityThreshold: similarityThreshold.value,
-          embeddingMethod: embeddingMethod.value,
-          minTotalVolumes: Math.max(0, Number(minTotalVolumes.value) || 0),
-          sortTotalVolumes: sortTotalVolumes.value,
-          includeSamePublisherOtherMagazines: !!includeSamePublisherOtherMagazines.value,
-          samePublisherOtherMagazinesLimit: Math.min(10, Math.max(0, Number(samePublisherOtherMagazinesLimit.value) || 0))
+          limit: limitValue
         })
       }
     }
@@ -204,21 +106,13 @@ export default {
 
     return {
       searchQuery,
-      searchDepth,
-      includeRelated,
       searchLimit,
       isComposing,
-      similarityThreshold,
-      embeddingMethod,
-  minTotalVolumes,
-  sortTotalVolumes,
-  includeSamePublisherOtherMagazines,
-  samePublisherOtherMagazinesLimit,
       handleSearch,
       handleKeyDown,
       handleKeyUp,
       handleCompositionEnd,
-  handleClear
+      handleClear
     }
   }
 }

@@ -119,6 +119,30 @@ export default {
 
     const searchedWorkColor = null
 
+    const formatAuthorDisplayLabel = (rawLabel = '') => {
+      const trimmed = rawLabel.trim()
+      if (!trimmed) return ''
+
+      const multiAuthorSeparators = ['、', '／', '/', '＆', '&', ' and ', '・']
+      let labelForDisplay = trimmed
+
+      for (const separator of multiAuthorSeparators) {
+        if (labelForDisplay.includes(separator)) {
+          labelForDisplay = labelForDisplay.split(separator)[0].trim()
+          break
+        }
+      }
+
+      const commaMatch = labelForDisplay.match(/^([^,]+),\s*(.+)$/)
+      if (commaMatch) {
+        const surname = commaMatch[1].trim()
+        const givenName = commaMatch[2].trim()
+        return `${surname} ${givenName}`.replace(/\s+/g, ' ').trim()
+      }
+
+      return labelForDisplay
+    }
+
     const getNodeTypeLabel = (type) => {
       const labels = {
         work: '作品',
@@ -544,10 +568,9 @@ export default {
         // Process label based on node type
         let displayLabel = node.label
         
-        // For author nodes, show only the first person name
+        // For author nodes, normalize "Lastname, Firstname" style names
         if (node.type === 'author' && node.label) {
-          const authors = node.label.split(/[,、]/)
-          displayLabel = authors[0].trim()
+          displayLabel = formatAuthorDisplayLabel(node.label)
         }
         
         // For work nodes, add line breaks for better text wrapping

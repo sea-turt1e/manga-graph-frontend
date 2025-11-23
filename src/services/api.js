@@ -131,35 +131,18 @@ export const searchMediaArts = async (query, limit = 30) => {
 }
 
 // 関連データ込みの検索機能
-export const searchMediaArtsWithRelated = async (
-  query,
-  limit = 50,
-  includeRelated = true,
-  options = {}
-) => {
+export const searchMediaArtsWithRelated = async (query, limit = 50) => {
   try {
-    const {
-      sortTotalVolumes = 'desc',
-      minTotalVolumes = 5,
-      includeSamePublisherOtherMagazines = true,
-      samePublisherOtherMagazinesLimit = 5
-    } = options || {}
-
-    const response = await apiV1.get('/neo4j/search', {
+    const sanitizedLimit = Math.min(100, Math.max(1, Number(limit) || 50))
+    const response = await apiV1.get('/manga-anime-neo4j/graph', {
       params: {
         q: query,
-        limit,
-        include_related: includeRelated,
-        sort_total_volumes: sortTotalVolumes,
-        min_total_volumes: minTotalVolumes,
-        include_same_publisher_other_magazines: includeSamePublisherOtherMagazines,
-        same_publisher_other_magazines_limit: Math.min(10, Math.max(0, Number(samePublisherOtherMagazinesLimit) || 0))
+        limit: sanitizedLimit
       }
     })
     return response.data
   } catch (error) {
-    console.error('Media Arts search with related API error:', error)
-    console.log('Media Arts search with related API not yet available')
+    console.error('Manga graph search API error:', error)
     throw error
   }
 }

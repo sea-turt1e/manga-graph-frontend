@@ -69,7 +69,7 @@ export default {
     })
   const loading = ref(false)
   // 直近の検索オプションを保持して、/title-similarity 後の /search で引き継ぐ
-  const lastSearchOptions = ref({})
+  const lastSearchOptions = ref({ limit: 50 })
   const fuzzyCandidates = ref([])
   const showFuzzyPopup = ref(false)
     const toast = reactive({ visible: false, message: '', type: 'info', timer: null })
@@ -85,39 +85,13 @@ export default {
     const handleSearch = async (searchParams) => {
       loading.value = true
       const originalQuery = searchParams.query
-      // 受け取ったオプションを保存（クエリ以外）
-      const {
-        limit,
-        includeRelated,
-        sortTotalVolumes,
-        minTotalVolumes,
-        includeSamePublisherOtherMagazines,
-        samePublisherOtherMagazinesLimit,
-        similarityThreshold,
-        embeddingMethod
-      } = searchParams || {}
-      lastSearchOptions.value = {
-        limit,
-        includeRelated,
-        sortTotalVolumes,
-        minTotalVolumes,
-        includeSamePublisherOtherMagazines,
-        samePublisherOtherMagazinesLimit,
-        similarityThreshold,
-        embeddingMethod
-      }
+      const limit = Math.min(100, Math.max(1, Number(searchParams?.limit) || 50))
+      lastSearchOptions.value = { limit }
       try {
         // 1. まず通常検索
         let result = await searchMediaArtsWithRelated(
           originalQuery,
-          searchParams.limit || 50,
-          searchParams.includeRelated,
-          {
-            sortTotalVolumes: searchParams.sortTotalVolumes || 'desc',
-            minTotalVolumes: (typeof searchParams.minTotalVolumes === 'number' ? searchParams.minTotalVolumes : 5),
-            includeSamePublisherOtherMagazines: (typeof searchParams.includeSamePublisherOtherMagazines === 'boolean' ? searchParams.includeSamePublisherOtherMagazines : true),
-            samePublisherOtherMagazinesLimit: (typeof searchParams.samePublisherOtherMagazinesLimit === 'number' ? searchParams.samePublisherOtherMagazinesLimit : 5)
-          }
+          limit
         )
 
         const hasData = (result?.nodes?.length || 0) > 0 || (result?.edges?.length || 0) > 0
@@ -129,8 +103,8 @@ export default {
           const fuzzy = await searchTitleSimilarity(
             originalQuery,
             5,
-            searchParams.similarityThreshold || 0.8,
-            searchParams.embeddingMethod || 'huggingface'
+            0.8,
+            'huggingface'
           )
           const fuzzyResults = fuzzy?.results || []
           // 候補リスト（title & similarity_score）整形（新APIレスポンス形式に対応）
