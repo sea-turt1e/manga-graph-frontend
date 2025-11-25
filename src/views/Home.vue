@@ -7,32 +7,6 @@
         @clear="handleClear"
       />
       <div class="graph-area">
-        <!-- 曖昧候補ポップアップ（グラフ上オーバーレイ） -->
-        <div
-          v-if="showFuzzyPopup && fuzzyCandidates && fuzzyCandidates.length"
-          class="fuzzy-overlay"
-          @click.self="closeFuzzyPopup"
-        >
-          <div class="fuzzy-modal">
-            <div class="fuzzy-modal__header">
-              <div class="fuzzy-modal__title">検索したい作品名を選んでください。</div>
-              <button class="fuzzy-modal__close" @click="closeFuzzyPopup">×</button>
-            </div>
-            <div class="fuzzy-modal__body">
-              <div class="fuzzy-modal__list">
-                <button
-                  v-for="c in fuzzyCandidates"
-                  :key="c.title"
-                  class="fuzzy-item"
-                  @click="handleSelectFuzzy({ title: c.title })"
-                >
-                  <span class="fuzzy-item__title">{{ c.title }}</span>
-                  <span v-if="c.score != null" class="fuzzy-item__score">{{ formatScore(c.score) }}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
         <GraphVisualization 
           :graph-data="graphData"
           :loading="loading"
@@ -53,7 +27,7 @@ import { reactive, ref } from 'vue'
 import GraphVisualization from '../components/GraphVisualization.vue'
 import Header from '../components/Header.vue'
 import SearchPanel from '../components/SearchPanel.vue'
-import { searchMediaArtsWithRelated, searchTitleSimilarity } from '../services/api'
+import { searchMediaArtsWithRelated } from '../services/api'
 
 export default {
   name: 'Home',
@@ -68,10 +42,7 @@ export default {
       edges: []
     })
   const loading = ref(false)
-  // 直近の検索オプションを保持して、/title-similarity 後の /search で引き継ぐ
-  const lastSearchOptions = ref({ limit: 50 })
-  const fuzzyCandidates = ref([])
-  const showFuzzyPopup = ref(false)
+  const lastSearchMeta = ref({ lang: null, mode: null })
     const toast = reactive({ visible: false, message: '', type: 'info', timer: null })
 
     const showToast = (message, type = 'info', duration = 3000) => {
@@ -86,7 +57,7 @@ export default {
       loading.value = true
       const originalQuery = searchParams.query
       const limit = Math.min(100, Math.max(1, Number(searchParams?.limit) || 50))
-      lastSearchOptions.value = { limit }
+      lastSearchMeta.value = { lang: null, mode: null }
       try {
         // 1. まず通常検索
         let result = await searchMediaArtsWithRelated(
@@ -94,35 +65,15 @@ export default {
           limit
         )
 
+        lastSearchMeta.value = {
+          lang: result?.meta?.appliedLang ?? null,
+          mode: result?.meta?.appliedMode ?? null
+        }
+
         const hasData = (result?.nodes?.length || 0) > 0 || (result?.edges?.length || 0) > 0
 
-        // 2. データが無い場合、曖昧検索候補を取得してユーザーに提示
-  if (!hasData) {
-          console.log('[Fallback] No direct results. Trying fuzzy search for canonical title...')
-          showToast('直接ヒットが無かったため曖昧検索候補を表示します', 'warn')
-          const fuzzy = await searchTitleSimilarity(
-            originalQuery,
-            5,
-            0.8,
-            'huggingface'
-          )
-          const fuzzyResults = fuzzy?.results || []
-          // 候補リスト（title & similarity_score）整形（新APIレスポンス形式に対応）
-          fuzzyCandidates.value = fuzzyResults
-            .map(r => ({ title: r.title, score: r.similarity_score }))
-            .filter(c => c.title)
-            .sort((a, b) => (b.score || 0) - (a.score || 0))
-          if (fuzzyCandidates.value.length === 0) {
-            showToast('曖昧検索でも候補が見つかりませんでした', 'error')
-            showFuzzyPopup.value = false
-          } else {
-            // 候補がある場合はポップアップを開く
-            showFuzzyPopup.value = true
-          }
-        } else {
-          // 通常結果が出た場合は前回の候補をクリア
-          fuzzyCandidates.value = []
-          showFuzzyPopup.value = false
+        if (!hasData) {
+          showToast('指定条件では結果が見つかりませんでした。別のキーワードをお試しください。', 'warn')
         }
 
         // 検索結果のノードを特定してマークする
@@ -156,7 +107,7 @@ export default {
         console.error('検索エラー:', error)
         graphData.nodes = []
         graphData.edges = []
-        fuzzyCandidates.value = []
+        showToast('検索中にエラーが発生しました。', 'error')
       } finally {
         loading.value = false
       }
@@ -165,43 +116,17 @@ export default {
     const handleClear = () => {
       graphData.nodes = []
       graphData.edges = []
-  fuzzyCandidates.value = []
-  showFuzzyPopup.value = false
-    }
-
-    const handleSelectFuzzy = async ({ title }) => {
-      if (!title) return
-      showToast(`候補「${title}」で再検索します`, 'info')
-      // 直近の検索オプションを引き継いで再検索
-      await handleSearch({
-        query: title,
-        ...lastSearchOptions.value
-      })
-      // 候補から選択したらポップアップは閉じる
-      showFuzzyPopup.value = false
-    }
-
-    const formatScore = (score) => {
-      if (score == null) return ''
-      return `(${Number(score).toFixed(3)})`
-    }
-
-    const closeFuzzyPopup = () => {
-      showFuzzyPopup.value = false
+      lastSearchMeta.value = { lang: null, mode: null }
     }
 
     return {
       graphData,
       loading,
-  lastSearchOptions,
-      fuzzyCandidates,
+      lastSearchMeta,
       toast,
       handleSearch,
       handleClear,
-  handleSelectFuzzy,
-  formatScore,
-  showFuzzyPopup,
-  closeFuzzyPopup
+      showToast
     }
   }
 }
@@ -224,79 +149,6 @@ export default {
   display: flex;
   flex-direction: column;
 }
-
-.fuzzy-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 40px;
-  z-index: 10;
-}
-
-.fuzzy-modal {
-  width: min(800px, 92vw);
-  max-height: 70vh;
-  background: #ffffff;
-  color: #111827;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-  overflow: hidden;
-}
-
-.fuzzy-modal__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  background: #f3f4f6;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.fuzzy-modal__title {
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.fuzzy-modal__close {
-  background: transparent;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  color: #374151;
-}
-
-.fuzzy-modal__body {
-  padding: 12px 14px;
-}
-
-.fuzzy-modal__list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.fuzzy-item {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.fuzzy-item:hover {
-  background: #f0f4ff;
-  border-color: #667eea;
-}
-
-.fuzzy-item__title { font-weight: 600; }
-.fuzzy-item__score { color: #555; font-family: monospace; }
 
 /* Toast */
 .toast {

@@ -17,7 +17,7 @@
 
 ## 主な機能
 
-- **検索機能**: 作品名による検索と関連データ表示（取得上限のみ調整可能）
+- **検索機能**: 作品名による検索と関連データ表示（取得上限のみ調整可能、lang/mode のフォールバックでOpenAPI推奨順に探索）
 - **グラフ可視化**: Cytoscape.jsによるインタラクティブなノード・エッジ表示
 - **関係表示**: 作品（緑）、作者（青）、雑誌（オレンジ）の色分け表示
 - **検索オプション**: 取得上限（limit）を指定可能
@@ -89,7 +89,7 @@ src/
 アプリケーションは以下のエンドポイントを使用します：
 
 - `POST /v1/search` - 基本検索機能
-- `GET /v1/manga-anime-neo4j/graph` - Neo4jグラフ（漫画・アニメ）検索
+- `GET /v1/manga-anime-neo4j/graph` - Neo4jグラフ（漫画・アニメ）検索（lang=ja/en × mode=simple/fulltext/ranked を順番にフォールバック）
 - `GET /v1/neo4j/vector/title-similarity` - タイトル類似度検索（曖昧検索）
 - `GET /v1/media-arts/*` - 文化庁メディア芸術データベース連携
 - `GET /health` - ヘルスチェック

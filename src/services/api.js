@@ -131,19 +131,83 @@ export const searchMediaArts = async (query, limit = 30) => {
 }
 
 // 関連データ込みの検索機能
+const GRAPH_SEARCH_COMBINATIONS = [
+  { lang: 'japanese', mode: 'simple' },
+  { lang: 'japanese', mode: 'fulltext' },
+  { lang: 'japanese', mode: 'ranked' },
+  { lang: 'english', mode: 'simple' },
+  { lang: 'english', mode: 'fulltext' },
+  { lang: 'english', mode: 'ranked' }
+]
+
+const hasGraphResults = (payload) => {
+  if (!payload) return false
+  const nodeCount = Array.isArray(payload.nodes) ? payload.nodes.length : 0
+  const edgeCount = Array.isArray(payload.edges) ? payload.edges.length : 0
+  return nodeCount > 0 || edgeCount > 0
+}
+
 export const searchMediaArtsWithRelated = async (query, limit = 50) => {
-  try {
-    const sanitizedLimit = Math.min(100, Math.max(1, Number(limit) || 50))
-    const response = await apiV1.get('/manga-anime-neo4j/graph', {
-      params: {
-        q: query,
-        limit: sanitizedLimit
+  const sanitizedLimit = Math.min(100, Math.max(1, Number(limit) || 50))
+  let lastEmptyResponse = null
+  let lastError = null
+  let lastAttemptCombo = null
+
+  for (const combo of GRAPH_SEARCH_COMBINATIONS) {
+    try {
+      const response = await apiV1.get('/manga-anime-neo4j/graph', {
+        params: {
+          q: query,
+          limit: sanitizedLimit,
+          lang: combo.lang,
+          mode: combo.mode
+        }
+      })
+
+      const payload = response.data
+      lastAttemptCombo = combo
+      if (hasGraphResults(payload)) {
+        return {
+          ...payload,
+          meta: {
+            ...(payload?.meta || {}),
+            appliedLang: combo.lang,
+            appliedMode: combo.mode
+          }
+        }
       }
-    })
-    return response.data
-  } catch (error) {
-    console.error('Manga graph search API error:', error)
-    throw error
+      lastEmptyResponse = payload
+    } catch (error) {
+      lastError = error
+      console.warn(`Graph search failed for lang=${combo.lang}, mode=${combo.mode}`, error)
+    }
+  }
+
+  if (lastEmptyResponse) {
+    return {
+      ...lastEmptyResponse,
+      nodes: lastEmptyResponse.nodes || [],
+      edges: lastEmptyResponse.edges || [],
+      meta: {
+        ...(lastEmptyResponse.meta || {}),
+        appliedLang: lastAttemptCombo?.lang ?? lastEmptyResponse.meta?.appliedLang ?? null,
+        appliedMode: lastAttemptCombo?.mode ?? lastEmptyResponse.meta?.appliedMode ?? null
+      }
+    }
+  }
+
+  if (lastError) {
+    console.error('Manga graph search API error:', lastError)
+    throw lastError
+  }
+
+  return {
+    nodes: [],
+    edges: [],
+    meta: {
+      appliedLang: null,
+      appliedMode: null
+    }
   }
 }
 
