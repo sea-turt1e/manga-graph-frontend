@@ -79,8 +79,9 @@ export default {
         // 検索結果のノードを特定してマークする
         const searchQuery = (searchParams.query || originalQuery).toLowerCase()
         const nodes = (result.nodes || []).map(node => {
-          // title が存在しない場合 properties.title を昇格させる
-          const resolvedTitle = node.title || node.properties?.title || ''
+          const resolvedTitle = node.type === 'work'
+            ? (node.properties?.japanese_name || node.title || node.properties?.title || '')
+            : (node.title || node.properties?.title || '')
           const titleLower = resolvedTitle.toLowerCase()
           // 検索語を含む作品ノードを強調対象にする
           const isSearchHit = node.type === 'work' && titleLower.includes(searchQuery)

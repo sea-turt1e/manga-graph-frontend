@@ -566,7 +566,10 @@ export default {
         }
         
         // Process label based on node type
-        let displayLabel = node.label
+        const baseLabel = node.type === 'work'
+          ? (node.properties?.japanese_name || node.label || node.properties?.title || '')
+          : (node.label || node.properties?.title || '')
+        let displayLabel = baseLabel
         
         // For author nodes, normalize "Lastname, Firstname" style names
         if (node.type === 'author' && node.label) {
@@ -574,10 +577,10 @@ export default {
         }
         
         // For work nodes, add line breaks for better text wrapping
-        if (node.type === 'work' && node.label) {
+        if (node.type === 'work' && baseLabel) {
           // Split long titles into multiple lines (approximately every 8-10 characters)
           const maxCharsPerLine = 8
-          const words = node.label.split('')
+          const words = baseLabel.split('')
           let lines = []
           let currentLine = ''
           
