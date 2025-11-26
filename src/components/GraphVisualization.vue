@@ -50,7 +50,10 @@
     
     <div v-if="selectedNode" class="node-info-panel">
       <div class="node-info-header">
-        <h3>{{ selectedNode.label }}</h3>
+        <div class="node-info-title">
+          <h3>{{ selectedNode.label }}</h3>
+          <p v-if="selectedNode.publishingPeriod" class="publishing-period">{{ selectedNode.publishingPeriod }}</p>
+        </div>
         <button @click="selectedNode = null" class="close-button">×</button>
       </div>
       <div class="node-info-content">
@@ -141,6 +144,117 @@ export default {
       }
 
       return labelForDisplay
+    }
+
+    const monthNameToNumber = (name) => {
+      if (!name) return null
+      const m = name.toLowerCase().slice(0,3)
+      const map = {
+        jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+        jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12
+      }
+      return map[m] || null
+    }
+
+    const tryParseDate = (s) => {
+      if (!s) return null
+      const str = `${s}`.trim()
+      if (!str || str === 'null' || str === 'undefined') return null
+      if (str === '?' || str === '連載中') return str
+
+      // Try Date.parse first (handles formats like "Sep 27, 1999" and ISO)
+      const cleaned = str.replace(/\s+to\s+.*/i, '').replace(/,/g, '')
+      const parsed = Date.parse(cleaned)
+      if (!isNaN(parsed)) {
+        const d = new Date(parsed)
+        return { year: d.getFullYear(), month: d.getMonth() + 1 }
+      }
+
+      // Try to match "MMM dd yyyy" or "MMM d, yyyy"
+      const mMatch = str.match(/([A-Za-z]{3,})\s+\d{1,2},?\s*(\d{4})/)
+      if (mMatch) {
+        const mo = monthNameToNumber(mMatch[1])
+        const yr = Number(mMatch[2])
+        if (mo && yr) return { year: yr, month: mo }
+      }
+
+      // Try to match numeric like 1999/04 or 1999-04-24
+      const numMatch = str.match(/(\d{4})[^0-9]?(\d{1,2})?/) // year and optional month
+      if (numMatch) {
+        const yr = Number(numMatch[1])
+        const mo = numMatch[2] ? Number(numMatch[2]) : null
+        return { year: yr, month: mo }
+      }
+
+      return null
+    }
+
+    const normalizeYearMonth = (value) => {
+      if (value == null) return ''
+      const str = `${value}`.trim()
+      if (!str) return ''
+      if (str === '?' || str === '連載中') return str
+
+      const parsed = tryParseDate(str)
+      if (!parsed) return '?'
+      if (parsed === '連載中') return '連載中'
+      if (parsed === '?') return '?'
+
+      const year = parsed.year
+      const month = parsed.month ? String(parsed.month).padStart(2, '0') : '??'
+      return `${year}/${month}`
+    }
+
+    const extractPublishingDates = (properties = {}) => {
+      const raw = properties.publishing_date
+      let start = null
+      let end = null
+
+      if (Array.isArray(raw)) {
+        start = raw[0] ?? null
+        end = raw[1] ?? null
+      } else if (raw && typeof raw === 'object') {
+        start = raw.start ?? raw.begin ?? raw.first ?? null
+        end = raw.end ?? raw.finish ?? raw.last ?? null
+      } else if (typeof raw === 'string') {
+        const trimmed = raw.trim()
+        if (!trimmed) {
+          start = null
+          end = null
+        } else if (/\s+to\s+/i.test(trimmed)) {
+          const parts = trimmed.split(/\s+to\s+/i)
+          start = parts[0]?.trim() ?? null
+          end = parts[1]?.trim() ?? null
+        } else if (trimmed.includes('-')) {
+          const parts = trimmed.split('-')
+          start = parts[0]?.trim() ?? null
+          end = parts[1]?.trim() ?? null
+        } else if (trimmed.includes('~')) {
+          const parts = trimmed.split('~')
+          start = parts[0]?.trim() ?? null
+          end = parts[1]?.trim() ?? null
+        } else {
+          start = trimmed
+        }
+      }
+
+      return { start, end }
+    }
+
+    const formatPublishingPeriod = (properties = {}) => {
+      const { start, end } = extractPublishingDates(properties)
+      if (!start && !end) return ''
+
+      const normalizedStart = normalizeYearMonth(start) || '?'
+      let normalizedEnd = normalizeYearMonth(end)
+
+      if ((!normalizedEnd || normalizedEnd === '?') && properties.status === 'Publishing') {
+        normalizedEnd = '連載中'
+      } else if (!normalizedEnd) {
+        normalizedEnd = '?'
+      }
+
+      return `連載年月: ${normalizedStart} - ${normalizedEnd}`
     }
 
     const getNodeTypeLabel = (type) => {
@@ -473,10 +587,13 @@ export default {
         const node = evt.target
         selectedNode.value = {
           id: node.data('id'),
-          // 見出しにはオリジナルのラベルを使用（改行挿入によるスペース崩れを防ぐ）
-          label: node.data('originalLabel') || node.data('label'),
+          // 見出しには日本語名（displayName）を優先して使用
+          label: node.data('displayName') || node.data('originalLabel') || node.data('label'),
           type: node.data('type'),
-          properties: node.data('properties')
+          properties: node.data('properties'),
+          publishingPeriod: node.data('type') === 'work'
+            ? formatPublishingPeriod(node.data('properties') || {})
+            : ''
         }
         // タッチデバイスではタップ時にホバー同等の強調を適用
         if (isTouchDevice()) {
@@ -602,6 +719,7 @@ export default {
           data: {
             id: node.id,
             label: displayLabel,
+            displayName: baseLabel,
             originalLabel: node.label, // 情報パネル用に元のラベルを保持
             type: node.type,
             properties: nodeProperties,
@@ -1091,10 +1209,22 @@ export default {
   align-items: center;
 }
 
+.node-info-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .node-info-header h3 {
   margin: 0;
   color: #333;
   font-size: 1.2rem;
+}
+
+.publishing-period {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #555;
 }
 
 .close-button {
