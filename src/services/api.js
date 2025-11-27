@@ -284,6 +284,78 @@ export const fulltextSearch = async (query, searchType = 'simple_query_string', 
   }
 }
 
+const encodeId = (value) => encodeURIComponent(value)
+
+const buildLimitParams = (limit) => {
+  if (limit === undefined || limit === null) return {}
+  if (typeof limit === 'number' && Number.isFinite(limit)) {
+    return { limit: String(limit) }
+  }
+  if (typeof limit === 'string' && limit.trim().length > 0) {
+    return { limit: limit.trim() }
+  }
+  return {}
+}
+
+export const getAuthorRelatedWorks = async (authorNodeId, limit = 5) => {
+  if (!authorNodeId) return { nodes: [], edges: [] }
+  try {
+    const response = await apiV1.get(`/manga-anime-neo4j/author/${encodeId(authorNodeId)}/works`, {
+      params: buildLimitParams(limit)
+    })
+    return response.data
+  } catch (error) {
+    console.error(`Author works API error (${authorNodeId}):`, error)
+    throw error
+  }
+}
+
+export const getMagazineRelatedWorks = async (magazineNodeId, limit = 5) => {
+  if (!magazineNodeId) return { nodes: [], edges: [] }
+  try {
+    const response = await apiV1.get(`/manga-anime-neo4j/magazine/${encodeId(magazineNodeId)}/works`, {
+      params: buildLimitParams(limit)
+    })
+    return response.data
+  } catch (error) {
+    console.error(`Magazine works API error (${magazineNodeId}):`, error)
+    throw error
+  }
+}
+
+export const getPublisherMagazines = async (publisherNodeId, limit = 5) => {
+  if (!publisherNodeId) return { nodes: [], edges: [] }
+  try {
+    const response = await apiV1.get(`/manga-anime-neo4j/publisher/${encodeId(publisherNodeId)}/magazines`, {
+      params: buildLimitParams(limit)
+    })
+    return response.data
+  } catch (error) {
+    console.error(`Publisher magazines API error (${publisherNodeId}):`, error)
+    throw error
+  }
+}
+
+export const getMagazineWorkGraph = async (magazineElementIds, workLimit = 3) => {
+  if (!Array.isArray(magazineElementIds) || magazineElementIds.length === 0) {
+    return { nodes: [], edges: [] }
+  }
+
+  const sanitizedLimit = Math.min(500, Math.max(1, Number(workLimit) || 3))
+  const payload = {
+    magazine_element_ids: magazineElementIds,
+    work_limit: sanitizedLimit
+  }
+
+  try {
+    const response = await apiV1.post('/manga-anime-neo4j/magazines/work-graph', payload)
+    return response.data
+  } catch (error) {
+    console.error('Magazine work graph API error:', error)
+    throw error
+  }
+}
+
 // 書影取得機能
 export const getWorkCover = async (workId) => {
   try {

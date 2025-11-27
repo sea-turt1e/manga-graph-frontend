@@ -57,6 +57,14 @@
         <button @click="selectedNode = null" class="close-button">×</button>
       </div>
       <div class="node-info-content">
+        <div v-if="selectedNode.genresDisplay" class="property-item">
+          <strong>ジャンル: </strong>
+          <span>{{ selectedNode.genresDisplay }}</span>
+        </div>
+        <div v-if="selectedNode.themesDisplay" class="property-item">
+          <strong>テーマ: </strong>
+          <span>{{ selectedNode.themesDisplay }}</span>
+        </div>
         <div v-if="selectedNode.properties && selectedNode.properties.db_url" class="property-item">
           <strong>リンク: </strong>
           <a
@@ -77,6 +85,7 @@
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
 import { nextTick, onMounted, ref, watch } from 'vue'
+import responseTranslations from '../assets/response_en_to_ja.json'
 
 cytoscape.use(coseBilkent)
 
@@ -121,6 +130,43 @@ export default {
     }
 
     const searchedWorkColor = null
+
+    const translationCategories = {
+      serialization: responseTranslations?.serialization || {},
+      genres: responseTranslations?.genres || {},
+      themes: responseTranslations?.themes || {},
+      publisher: responseTranslations?.publisher || {}
+    }
+
+    const toArray = (value) => {
+      if (!value && value !== 0) return []
+      return Array.isArray(value) ? value : [value]
+    }
+
+    const translateSingle = (category, value) => {
+      const dict = translationCategories[category] || {}
+      if (value == null) return ''
+      const str = typeof value === 'string' ? value.trim() : `${value}`
+      if (!str) return ''
+      return dict[str] || str
+    }
+
+    const translateList = (category, values) => {
+      const dict = translationCategories[category] || {}
+      return toArray(values)
+        .map((item) => {
+          if (item == null) return null
+          const str = typeof item === 'string' ? item.trim() : `${item}`
+          if (!str) return null
+          return dict[str] || str
+        })
+        .filter((item) => typeof item === 'string' && item.length > 0)
+    }
+
+    const buildCommaSeparated = (items) => {
+      if (!items || items.length === 0) return ''
+      return items.join(', ')
+    }
 
     const formatAuthorDisplayLabel = (rawLabel = '') => {
       const trimmed = rawLabel.trim()
@@ -585,15 +631,25 @@ export default {
 
       cy.on('tap', 'node', (evt) => {
         const node = evt.target
+        const nodeProperties = node.data('properties') || {}
+        const isWorkNode = node.data('type') === 'work'
+        const genresList = isWorkNode
+          ? translateList('genres', nodeProperties.genres)
+          : []
+        const themesList = isWorkNode
+          ? translateList('themes', nodeProperties.themes)
+          : []
         selectedNode.value = {
           id: node.data('id'),
           // 見出しには日本語名（displayName）を優先して使用
           label: node.data('displayName') || node.data('originalLabel') || node.data('label'),
           type: node.data('type'),
-          properties: node.data('properties'),
-          publishingPeriod: node.data('type') === 'work'
-            ? formatPublishingPeriod(node.data('properties') || {})
-            : ''
+          properties: nodeProperties,
+          publishingPeriod: isWorkNode
+            ? formatPublishingPeriod(nodeProperties)
+            : '',
+          genresDisplay: buildCommaSeparated(genresList),
+          themesDisplay: buildCommaSeparated(themesList)
         }
         // タッチデバイスではタップ時にホバー同等の強調を適用
         if (isTouchDevice()) {
@@ -683,9 +739,17 @@ export default {
         }
         
         // Process label based on node type
-        const baseLabel = node.type === 'work'
+        let baseLabel = node.type === 'work'
           ? (node.properties?.japanese_name || node.label || node.properties?.title || '')
           : (node.label || node.properties?.title || '')
+
+        if (node.type === 'magazine') {
+          const magazineSource = node.properties?.title || node.properties?.name || node.label
+          baseLabel = translateSingle('serialization', magazineSource) || baseLabel
+        } else if (node.type === 'publisher') {
+          const publisherSource = node.properties?.title || node.properties?.name || node.label
+          baseLabel = translateSingle('publisher', publisherSource) || baseLabel
+        }
         let displayLabel = baseLabel
         
         // For author nodes, normalize "Lastname, Firstname" style names

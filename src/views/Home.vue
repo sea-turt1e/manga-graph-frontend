@@ -27,7 +27,25 @@ import { reactive, ref } from 'vue'
 import GraphVisualization from '../components/GraphVisualization.vue'
 import Header from '../components/Header.vue'
 import SearchPanel from '../components/SearchPanel.vue'
-import { searchMediaArtsWithRelated } from '../services/api'
+import {
+  getAuthorRelatedWorks,
+  getMagazineRelatedWorks,
+  getMagazineWorkGraph,
+  getPublisherMagazines,
+  searchMediaArtsWithRelated
+} from '../services/api'
+
+const DEFAULT_EXPANSION_OPTIONS = {
+  includeAuthorWorks: true,
+  includeMagazineWorks: true,
+  includePublisherMagazines: true,
+  includePublisherMagazineWorks: true
+}
+
+const SUBGRAPH_BATCH_SIZE = 4
+const PUBLISHER_MAGAZINE_LIMIT = 5
+const DEFAULT_MAGAZINE_WORK_LIMIT = 3
+const MAX_MAGAZINE_WORK_LIMIT = 500
 
 export default {
   name: 'Home',
@@ -41,8 +59,8 @@ export default {
       nodes: [],
       edges: []
     })
-  const loading = ref(false)
-  const lastSearchMeta = ref({ lang: null, mode: null })
+    const loading = ref(false)
+    const lastSearchMeta = ref({ lang: null, mode: null })
     const toast = reactive({ visible: false, message: '', type: 'info', timer: null })
 
     const showToast = (message, type = 'info', duration = 3000) => {
@@ -53,17 +71,198 @@ export default {
       toast.timer = setTimeout(() => { toast.visible = false }, duration)
     }
 
+    const resolveNodeId = (node = {}) => {
+      if (!node || typeof node !== 'object') return null
+      return (
+        node.id ??
+        node.neo4j_id ??
+        node.neo4jId ??
+        node?.properties?.neo4j_id ??
+        node?.properties?.id ??
+        node?.properties?.work_id ??
+        node?.properties?.magazine_id ??
+        node?.properties?.publisher_id ??
+        node?.properties?.node_id ??
+        null
+      )
+    }
+
+    const resolveElementId = (node = {}) => {
+      if (!node || typeof node !== 'object') return null
+      return (
+        node.element_id ??
+        node.elementId ??
+        node?.properties?.element_id ??
+        node?.properties?.elementId ??
+        node.id ??
+        null
+      )
+    }
+
+    const getNodeKey = (node = {}) => {
+      if (!node || typeof node !== 'object') return null
+      return (
+        node.id ??
+        node.neo4j_id ??
+        node.neo4jId ??
+        node?.properties?.neo4j_id ??
+        node?.properties?.id ??
+        node?.properties?.work_id ??
+        node?.properties?.magazine_id ??
+        node?.properties?.publisher_id ??
+        node?.properties?.node_id ??
+        (node.type && node.title ? `${node.type}:${node.title}` : null)
+      )
+    }
+
+    const getEdgeKey = (edge = {}) => {
+      if (!edge || typeof edge !== 'object') return null
+      const source = edge.source || edge.from
+      const target = edge.target || edge.to
+      if (!source || !target) return edge.id || edge.neo4j_id || edge.neo4jId || null
+      return edge.id || edge.neo4j_id || edge.neo4jId || `${source}->${target}:${edge.type || edge.label || 'related'}`
+    }
+
+    const mergeGraphSegments = (baseNodes = [], baseEdges = [], segments = []) => {
+      const nodeMap = new Map()
+      const edgeMap = new Map()
+
+      const normalizeNode = (node, key) => {
+        if (!node || typeof node !== 'object') return null
+        const properties = {
+          ...(node.properties || {})
+        }
+        const fallbackLabel = node.label || node.title || properties.title || properties.name || ''
+        return {
+          ...node,
+          id: node.id ?? key,
+          title: node.title || fallbackLabel,
+          label: fallbackLabel,
+          properties
+        }
+      }
+
+      const upsertNode = (node) => {
+        const key = getNodeKey(node)
+        if (!key) return
+        const normalized = normalizeNode(node, key)
+        if (!normalized) return
+        if (nodeMap.has(key)) {
+          const existing = nodeMap.get(key)
+          nodeMap.set(key, {
+            ...existing,
+            ...normalized,
+            id: existing?.id || normalized.id || key,
+            title: existing?.title || normalized?.title,
+            label: existing?.label || normalized?.label || existing?.title || normalized?.title,
+            properties: {
+              ...(normalized?.properties || {}),
+              ...(existing?.properties || {})
+            },
+            isSearchResult: existing?.isSearchResult || normalized?.isSearchResult || false,
+            isSearched: existing?.isSearched || normalized?.isSearched || false,
+            color: existing?.color || normalized?.color
+          })
+        } else {
+          nodeMap.set(key, normalized)
+        }
+      }
+
+      const addEdge = (edge) => {
+        const key = getEdgeKey(edge)
+        if (!key) return
+        if (!edgeMap.has(key)) {
+          edgeMap.set(key, {
+            ...edge,
+            id: edge.id || key,
+            source: edge.source || edge.from,
+            target: edge.target || edge.to
+          })
+        }
+      }
+
+      baseNodes.forEach(upsertNode)
+      baseEdges.forEach(addEdge)
+
+      segments.forEach((segment) => {
+        ;(segment?.nodes || []).forEach(upsertNode)
+        ;(segment?.edges || []).forEach(addEdge)
+      })
+
+      return {
+        nodes: Array.from(nodeMap.values()),
+        edges: Array.from(edgeMap.values())
+      }
+    }
+
+    const collectIdsByType = (nodes = [], type) => {
+      return Array.from(new Set(
+        nodes
+          .filter((node) => node.type === type)
+          .map((node) => resolveNodeId(node))
+          .filter(Boolean)
+      ))
+    }
+
+    const fetchSegmentsInBatches = async (ids, fetcher, batchSize = SUBGRAPH_BATCH_SIZE, onSuccess) => {
+      const segments = []
+      const failedIds = []
+
+      for (let i = 0; i < ids.length; i += batchSize) {
+        const batch = ids.slice(i, i + batchSize)
+        const settled = await Promise.allSettled(batch.map((id) => fetcher(id)))
+        settled.forEach((result, index) => {
+          const currentId = batch[index]
+          if (result.status === 'fulfilled' && result.value) {
+            const payload = result.value
+            segments.push({
+              nodes: payload.nodes || [],
+              edges: payload.edges || []
+            })
+            if (typeof onSuccess === 'function') {
+              onSuccess(currentId, payload)
+            }
+          } else {
+            failedIds.push(currentId)
+            console.warn('追加データ取得に失敗しました:', currentId, result.reason)
+          }
+        })
+      }
+
+      return { segments, failedIds }
+    }
+
+    const collectMagazineElementIds = (baseNodes = [], segments = [], publisherCache = new Map()) => {
+      const ids = new Set()
+      const addNodes = (list = []) => {
+        list.forEach((node) => {
+          if (node?.type !== 'magazine') return
+          const elementId = resolveElementId(node)
+          if (elementId) {
+            ids.add(elementId)
+          }
+        })
+      }
+
+      addNodes(baseNodes)
+      segments.forEach((segment) => addNodes(segment?.nodes))
+      publisherCache.forEach((payload) => addNodes(payload?.nodes))
+
+      return Array.from(ids)
+    }
+
     const handleSearch = async (searchParams) => {
       loading.value = true
       const originalQuery = searchParams.query
       const limit = Math.min(100, Math.max(1, Number(searchParams?.limit) || 50))
+      const expansionOptions = {
+        ...DEFAULT_EXPANSION_OPTIONS,
+        ...(searchParams?.expansions || {})
+      }
+
       lastSearchMeta.value = { lang: null, mode: null }
       try {
-        // 1. まず通常検索
-        let result = await searchMediaArtsWithRelated(
-          originalQuery,
-          limit
-        )
+        const result = await searchMediaArtsWithRelated(originalQuery, limit)
 
         lastSearchMeta.value = {
           lang: result?.meta?.appliedLang ?? null,
@@ -76,33 +275,100 @@ export default {
           showToast('指定条件では結果が見つかりませんでした。別のキーワードをお試しください。', 'warn')
         }
 
-        // 検索結果のノードを特定してマークする
         const searchQuery = (searchParams.query || originalQuery).toLowerCase()
         const nodes = (result.nodes || []).map(node => {
           const resolvedTitle = node.type === 'work'
             ? (node.properties?.japanese_name || node.title || node.properties?.title || '')
             : (node.title || node.properties?.title || '')
           const titleLower = resolvedTitle.toLowerCase()
-          // 検索語を含む作品ノードを強調対象にする
           const isSearchHit = node.type === 'work' && titleLower.includes(searchQuery)
           return {
             ...node,
-            title: resolvedTitle, // 可視化用に正規化
+            title: resolvedTitle,
             isSearchResult: isSearchHit,
             isSearched: isSearchHit,
             color: isSearchHit ? '#ff6b6b' : (node.color || '#4fc3f7')
           }
         })
 
-  graphData.nodes = nodes
-  graphData.edges = result.edges || []
+        graphData.nodes = nodes
+        graphData.edges = result.edges || []
+
+        const expansionSegments = []
+        const failedMessages = []
+        const publisherMagazinesCache = new Map()
+
+        if (expansionOptions.includeAuthorWorks) {
+          const authorIds = collectIdsByType(nodes, 'author')
+          if (authorIds.length) {
+            const { segments, failedIds } = await fetchSegmentsInBatches(authorIds, (id) => getAuthorRelatedWorks(id, 5))
+            expansionSegments.push(...segments)
+            if (failedIds.length) failedMessages.push(`作者(${failedIds.length})`)
+          }
+        }
+
+        if (expansionOptions.includeMagazineWorks) {
+          const magazineIds = collectIdsByType(nodes, 'magazine')
+          if (magazineIds.length) {
+            const { segments, failedIds } = await fetchSegmentsInBatches(magazineIds, (id) => getMagazineRelatedWorks(id))
+            expansionSegments.push(...segments)
+            if (failedIds.length) failedMessages.push(`雑誌(${failedIds.length})`)
+          }
+        }
+
+        if (expansionOptions.includePublisherMagazines || expansionOptions.includePublisherMagazineWorks) {
+          const publisherIds = collectIdsByType(nodes, 'publisher')
+          if (publisherIds.length) {
+            const { segments, failedIds } = await fetchSegmentsInBatches(
+              publisherIds,
+              (id) => getPublisherMagazines(id, PUBLISHER_MAGAZINE_LIMIT),
+              SUBGRAPH_BATCH_SIZE,
+              (id, payload) => publisherMagazinesCache.set(id, payload)
+            )
+            expansionSegments.push(...segments)
+            if (failedIds.length && expansionOptions.includePublisherMagazines) {
+              failedMessages.push(`出版社雑誌(${failedIds.length})`)
+            }
+
+            if (expansionOptions.includePublisherMagazineWorks) {
+              const magazineElementIds = collectMagazineElementIds(nodes, expansionSegments, publisherMagazinesCache)
+              if (magazineElementIds.length) {
+                try {
+                  const workGraph = await getMagazineWorkGraph(
+                    magazineElementIds,
+                    DEFAULT_MAGAZINE_WORK_LIMIT
+                  )
+                  expansionSegments.push({
+                    nodes: workGraph.nodes || [],
+                    edges: workGraph.edges || []
+                  })
+                } catch (error) {
+                  console.error('出版社の他雑誌掲載作品取得に失敗しました:', error)
+                  failedMessages.push('出版社雑誌作品')
+                }
+              } else {
+                failedMessages.push('出版社雑誌作品(対象雑誌なし)')
+              }
+            }
+          }
+        }
+
+        if (expansionSegments.length) {
+          const mergedGraph = mergeGraphSegments(nodes, result.edges || [], expansionSegments)
+          graphData.nodes = mergedGraph.nodes
+          graphData.edges = mergedGraph.edges
+        }
+
+        if (failedMessages.length) {
+          showToast(`一部の関連データ取得に失敗しました: ${failedMessages.join(', ')}`, 'warn')
+        }
 
         console.log('検索結果:', {
           originalQuery,
-            finalQuery: searchParams.query,
-          nodesCount: nodes.length,
+          finalQuery: searchParams.query,
+          nodesCount: graphData.nodes.length,
           edgesCount: graphData.edges.length,
-          searchResults: nodes.filter(n => n.isSearchResult).length
+          searchResults: graphData.nodes.filter(n => n.isSearchResult).length
         })
       } catch (error) {
         console.error('検索エラー:', error)

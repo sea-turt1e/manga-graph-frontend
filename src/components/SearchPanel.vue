@@ -27,16 +27,37 @@
         
         <div class="search-options">
           <label class="option-label">
-            取得上限:
+            入力漫画名の取得上限:
             <input 
               v-model.number="searchLimit" 
               type="number" 
               min="1" 
-              max="100" 
+              max="30" 
               class="limit-input"
             />
-            （1〜100）
+            （1〜30）
+            ※入力した漫画名に対してヒットした件数の上限を設定します。
           </label>
+
+          <div class="expansion-options">
+            <p class="expansion-title">関連データの追加表示</p>
+            <label class="option-checkbox">
+              <input type="checkbox" v-model="expansions.includeAuthorWorks" />
+              作者の他作品（最大5件）
+            </label>
+            <label class="option-checkbox">
+              <input type="checkbox" v-model="expansions.includeMagazineWorks" />
+              同じ雑誌の他作品
+            </label>
+            <label class="option-checkbox">
+              <input type="checkbox" v-model="expansions.includePublisherMagazines" />
+              出版社の他雑誌
+            </label>
+            <label class="option-checkbox">
+              <input type="checkbox" v-model="expansions.includePublisherMagazineWorks" />
+              出版社の他雑誌掲載作品
+            </label>
+          </div>
         </div>
         
         <button 
@@ -63,22 +84,30 @@
 </template>
 
 <script>
-import { ref } from 'vue';
+import { reactive, ref } from 'vue';
 
 export default {
   name: 'SearchPanel',
   emits: ['search', 'clear'],
   setup(props, { emit }) {
     const searchQuery = ref('')
-    const searchLimit = ref(50)
+    const searchLimit = ref(3)
     const isComposing = ref(false)
+    const defaultExpansions = {
+      includeAuthorWorks: true,
+      includeMagazineWorks: true,
+      includePublisherMagazines: true,
+      includePublisherMagazineWorks: true
+    }
+    const expansions = reactive({ ...defaultExpansions })
 
     const handleSearch = () => {
       if (searchQuery.value.trim()) {
-        const limitValue = Math.min(100, Math.max(1, Number(searchLimit.value) || 50))
+        const limitValue = Math.min(100, Math.max(1, Number(searchLimit.value) || 20))
         emit('search', {
           query: searchQuery.value.trim(),
-          limit: limitValue
+          limit: limitValue,
+          expansions: { ...expansions }
         })
       }
     }
@@ -101,6 +130,7 @@ export default {
 
     const handleClear = () => {
       searchQuery.value = ''
+      Object.assign(expansions, defaultExpansions)
       emit('clear')
     }
 
@@ -108,6 +138,7 @@ export default {
       searchQuery,
       searchLimit,
       isComposing,
+      expansions,
       handleSearch,
       handleKeyDown,
       handleKeyUp,
@@ -200,6 +231,19 @@ export default {
 
 .search-options {
   margin-bottom: 20px;
+}
+
+.expansion-options {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #ececec;
+}
+
+.expansion-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 10px;
 }
 
 .option-label {
