@@ -39,7 +39,7 @@
             ※入力した漫画名に対してヒットした件数の上限を設定します。
           </label>
 
-          <div class="expansion-options">
+          <!-- <div class="expansion-options">
             <p class="expansion-title">関連データの追加表示</p>
             <label class="option-checkbox">
               <input type="checkbox" v-model="expansions.includeAuthorWorks" />
@@ -57,7 +57,7 @@
               <input type="checkbox" v-model="expansions.includePublisherMagazineWorks" />
               出版社の他雑誌掲載作品
             </label>
-          </div>
+          </div> -->
         </div>
         
         <button 

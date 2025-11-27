@@ -389,12 +389,69 @@ export default {
           {
             selector: 'node[isSearched]',
             style: {
-              'border-width': 5,
-              'shadow-blur': 24,
+              'border-width': 4,
+              'border-color': '#ef4444',
+              'shadow-blur': 30,
               'shadow-color': '#f87171',
-              'shadow-opacity': 0.65,
+              'shadow-opacity': 0.8,
               'shadow-offset-x': 0,
               'shadow-offset-y': 0
+            }
+          },
+          // 検索ヒット作品ノード（表紙なし）- 薄ピンク背景
+          {
+            selector: 'node[type="work"][isSearched]:not([coverUrl])',
+            style: {
+              'background-color': '#ffe4e6',
+              'border-width': 4,
+              'border-color': '#ef4444'
+            }
+          },
+          // 検索ヒット作品ノード（表紙あり）- 枠強調
+          {
+            selector: 'node[coverUrl][isSearched]',
+            style: {
+              'border-width': 4,
+              'border-color': '#ef4444',
+              'shadow-blur': 35,
+              'shadow-color': '#f87171',
+              'shadow-opacity': 0.85
+            }
+          },
+          // 検索ヒット著者ノード - 明るめ紫
+          {
+            selector: 'node[type="author"][isSearched]',
+            style: {
+              'background-color': '#c084fc',
+              'border-width': 4,
+              'border-color': '#ef4444',
+              'shadow-blur': 30,
+              'shadow-color': '#f87171',
+              'shadow-opacity': 0.8
+            }
+          },
+          // 検索ヒット雑誌ノード - 明るめオレンジ
+          {
+            selector: 'node[type="magazine"][isSearched]',
+            style: {
+              'background-color': '#fdba74',
+              'border-width': 4,
+              'border-color': '#ef4444',
+              'shadow-blur': 30,
+              'shadow-color': '#f87171',
+              'shadow-opacity': 0.8
+            }
+          },
+          // 検索ヒット出版社ノード - 明るめ紫
+          {
+            selector: 'node[type="publisher"][isSearched]',
+            style: {
+              'background-color': '#d8b4fe',
+              'border-width': 4,
+              'border-color': '#ef4444',
+              'shadow-blur': 30,
+              'shadow-color': '#f87171',
+              'shadow-opacity': 0.8
             }
           },
           // ホバー・近傍強調・非近傍ディミング
@@ -437,9 +494,12 @@ export default {
               'height': 120,
               'shape': 'rectangle',
               'label': '',
-              'border-width': 2,
+              'border-width': (ele) => ele.data('isSearched') ? 4 : 2,
               'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#e5e7eb',
               'border-style': 'solid',
+              'shadow-blur': (ele) => ele.data('isSearched') ? 35 : 12,
+              'shadow-color': (ele) => ele.data('isSearched') ? '#f87171' : '#94a3b8',
+              'shadow-opacity': (ele) => ele.data('isSearched') ? 0.85 : 0.25,
               'overlay-opacity': 0
             }
           },
@@ -449,8 +509,8 @@ export default {
               'width': 80,
               'height': 120,
               'shape': 'rectangle',
-              'background-color': '#ffffff',
-              'border-width': 2,
+              'background-color': (ele) => ele.data('isSearched') ? '#ffe4e6' : '#ffffff',
+              'border-width': (ele) => ele.data('isSearched') ? 4 : 2,
               'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#e5e7eb',
               'border-style': 'solid',
               'label': 'data(label)',
@@ -461,13 +521,16 @@ export default {
               'font-weight': '700',
               'text-wrap': 'wrap',
               'text-max-width': '75px',
+              'shadow-blur': (ele) => ele.data('isSearched') ? 30 : 12,
+              'shadow-color': (ele) => ele.data('isSearched') ? '#f87171' : '#94a3b8',
+              'shadow-opacity': (ele) => ele.data('isSearched') ? 0.8 : 0.25,
               'overlay-opacity': 0
             }
           },
           {
             selector: 'node[type="author"]',
             style: {
-              'background-color': (ele) => nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown,
+              'background-color': (ele) => ele.data('isSearched') ? '#c084fc' : (nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown),
               'label': (ele) => '👤\n' + ele.data('label'),
               'width': 80,
               'height': 80,
@@ -479,15 +542,18 @@ export default {
               'font-weight': '700',
               'text-wrap': 'wrap',
               'text-max-width': '75px',
-              'border-width': 2,
+              'border-width': (ele) => ele.data('isSearched') ? 4 : 2,
               'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#ffffff',
+              'shadow-blur': (ele) => ele.data('isSearched') ? 30 : 12,
+              'shadow-color': (ele) => ele.data('isSearched') ? '#f87171' : '#94a3b8',
+              'shadow-opacity': (ele) => ele.data('isSearched') ? 0.8 : 0.25,
               'overlay-opacity': 0
             }
           },
           {
             selector: 'node[type="publisher"]',
             style: {
-              'background-color': (ele) => nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown,
+              'background-color': (ele) => ele.data('isSearched') ? '#d8b4fe' : (nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown),
               'label': (ele) => '🏢\n' + ele.data('label'),
               'width': 80,
               'height': 80,
@@ -499,15 +565,18 @@ export default {
               'font-weight': '700',
               'text-wrap': 'wrap',
               'text-max-width': '75px',
-              'border-width': 2,
+              'border-width': (ele) => ele.data('isSearched') ? 4 : 2,
               'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#ffffff',
+              'shadow-blur': (ele) => ele.data('isSearched') ? 30 : 12,
+              'shadow-color': (ele) => ele.data('isSearched') ? '#f87171' : '#94a3b8',
+              'shadow-opacity': (ele) => ele.data('isSearched') ? 0.8 : 0.25,
               'overlay-opacity': 0
             }
           },
           {
             selector: 'node[type="magazine"]',
             style: {
-              'background-color': (ele) => nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown,
+              'background-color': (ele) => ele.data('isSearched') ? '#fdba74' : (nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown),
               'label': (ele) => '📖\n' + ele.data('label'),
               'width': 80,
               'height': 80,
@@ -519,8 +588,11 @@ export default {
               'font-weight': '700',
               'text-wrap': 'wrap',
               'text-max-width': '75px',
-              'border-width': 2,
+              'border-width': (ele) => ele.data('isSearched') ? 4 : 2,
               'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#ffffff',
+              'shadow-blur': (ele) => ele.data('isSearched') ? 30 : 12,
+              'shadow-color': (ele) => ele.data('isSearched') ? '#f87171' : '#94a3b8',
+              'shadow-opacity': (ele) => ele.data('isSearched') ? 0.8 : 0.25,
               'overlay-opacity': 0
             }
           },
@@ -739,26 +811,29 @@ export default {
         }
         
         // Process label based on node type
+        // 数値や他の型の場合に文字列に変換
+        const toStr = (val) => (val == null ? '' : String(val))
+        
         let baseLabel = node.type === 'work'
-          ? (node.properties?.japanese_name || node.label || node.properties?.title || '')
-          : (node.label || node.properties?.title || '')
+          ? toStr(node.properties?.japanese_name || node.label || node.properties?.title || '')
+          : toStr(node.label || node.properties?.title || '')
 
         if (node.type === 'magazine') {
-          const magazineSource = node.properties?.title || node.properties?.name || node.label
+          const magazineSource = toStr(node.properties?.title || node.properties?.name || node.label)
           baseLabel = translateSingle('serialization', magazineSource) || baseLabel
         } else if (node.type === 'publisher') {
-          const publisherSource = node.properties?.title || node.properties?.name || node.label
+          const publisherSource = toStr(node.properties?.title || node.properties?.name || node.label)
           baseLabel = translateSingle('publisher', publisherSource) || baseLabel
         }
         let displayLabel = baseLabel
         
         // For author nodes, normalize "Lastname, Firstname" style names
         if (node.type === 'author' && node.label) {
-          displayLabel = formatAuthorDisplayLabel(node.label)
+          displayLabel = formatAuthorDisplayLabel(toStr(node.label))
         }
         
         // For work nodes, add line breaks for better text wrapping
-        if (node.type === 'work' && baseLabel) {
+        if (node.type === 'work' && baseLabel && typeof baseLabel === 'string' && baseLabel.length > 0) {
           // Split long titles into multiple lines (approximately every 8-10 characters)
           const maxCharsPerLine = 8
           const words = baseLabel.split('')
@@ -784,7 +859,7 @@ export default {
             id: node.id,
             label: displayLabel,
             displayName: baseLabel,
-            originalLabel: node.label, // 情報パネル用に元のラベルを保持
+            originalLabel: toStr(node.label), // 情報パネル用に元のラベルを保持
             type: node.type,
             properties: nodeProperties,
             isSearched: node.isSearched || false
@@ -932,7 +1007,8 @@ export default {
           mentor_of: '師弟',
           influenced_by: '影響',
           collaborated_with: '共作',
-          worked_with: '共作'
+          worked_with: '共作',
+          PUBLISHED_IN: '掲載'
         }
         return labels[type] || ''
       }
@@ -953,8 +1029,40 @@ export default {
         })
       ]
 
+      // エッジのsource/targetが存在するノードを指しているか確認
+      const nodeIds = new Set(elements.filter(e => !e.data.source).map(e => e.data.id))
+      const edges = elements.filter(e => e.data.source)
+      const orphanEdges = edges.filter(e => !nodeIds.has(e.data.source) || !nodeIds.has(e.data.target))
+      
+      console.log('GraphVisualization: Adding elements to cytoscape:', {
+        totalElements: elements.length,
+        nodes: elements.filter(e => !e.data.source).length,
+        edges: edges.length,
+        orphanEdges: orphanEdges.length,
+        orphanEdgeDetails: orphanEdges.slice(0, 5).map(e => ({
+          id: e.data.id,
+          source: e.data.source,
+          sourceExists: nodeIds.has(e.data.source),
+          target: e.data.target,
+          targetExists: nodeIds.has(e.data.target),
+          type: e.data.type
+        })),
+        sampleEdges: edges.slice(0, 5).map(e => ({
+          id: e.data.id,
+          source: e.data.source,
+          target: e.data.target,
+          type: e.data.type
+        }))
+      })
+
       cy.elements().remove()
       cy.add(elements)
+      
+      // 追加後の状態をログ出力
+      console.log('GraphVisualization: After cy.add:', {
+        nodesInCy: cy.nodes().length,
+        edgesInCy: cy.edges().length
+      })
       
   if (elements.length > 0) {
         // レイアウト後に検索ヒットノードへフォーカス＆ハイライト
@@ -964,11 +1072,19 @@ export default {
     resolveCollisions(8, 10)
             const searched = cy.nodes().filter(n => !!n.data('isSearched'))
             if (searched && searched.length > 0) {
-      // 検索ヒット＋その近傍ノードも含めてフォーカス
-      const neighborNodes = searched.neighborhood().nodes()
-      const focusElements = searched.union(neighborNodes)
-      // 近傍も数個見えるようパディングを広めに確保
-      cy.fit(focusElements, 100)
+              // 検索ヒット数が少ない場合のみ近傍にフォーカス
+              // 多数のノードがある場合は全体を表示
+              const totalNodes = cy.nodes().length
+              if (totalNodes > 50) {
+                // 大きなグラフの場合は全体を表示
+                cy.fit(null, 50)
+              } else {
+                // 検索ヒット＋その近傍ノードも含めてフォーカス
+                const neighborNodes = searched.neighborhood().nodes()
+                const focusElements = searched.union(neighborNodes)
+                // 近傍も数個見えるようパディングを広めに確保
+                cy.fit(focusElements, 100)
+              }
               // 軽いアニメーションで注意を引く
               searched.forEach(n => {
                 const type = n.data('type')

@@ -43,7 +43,7 @@ const DEFAULT_EXPANSION_OPTIONS = {
 }
 
 const SUBGRAPH_BATCH_SIZE = 4
-const PUBLISHER_MAGAZINE_LIMIT = 5
+const PUBLISHER_MAGAZINE_LIMIT = 3
 const DEFAULT_MAGAZINE_WORK_LIMIT = 3
 const MAX_MAGAZINE_WORK_LIMIT = 500
 
@@ -136,6 +136,7 @@ export default {
         return {
           ...node,
           id: node.id ?? key,
+          type: node.type,  // typeを明示的に保持
           title: node.title || fallbackLabel,
           label: fallbackLabel,
           properties
@@ -149,10 +150,12 @@ export default {
         if (!normalized) return
         if (nodeMap.has(key)) {
           const existing = nodeMap.get(key)
+          // 既存のノードを優先し、新しいノードで補完する（上書きしない）
           nodeMap.set(key, {
-            ...existing,
-            ...normalized,
+            ...normalized,  // 新しいデータをベースに
+            ...existing,    // 既存のデータで上書き（既存を優先）
             id: existing?.id || normalized.id || key,
+            type: existing?.type || normalized?.type,  // typeを明示的に保持
             title: existing?.title || normalized?.title,
             label: existing?.label || normalized?.label || existing?.title || normalized?.title,
             properties: {
@@ -316,7 +319,7 @@ export default {
           }
         }
 
-        if (expansionOptions.includePublisherMagazines || expansionOptions.includePublisherMagazineWorks) {
+        if (expansionOptions.includePublisherMagazines) {
           const publisherIds = collectIdsByType(nodes, 'publisher')
           if (publisherIds.length) {
             const { segments, failedIds } = await fetchSegmentsInBatches(
@@ -326,35 +329,48 @@ export default {
               (id, payload) => publisherMagazinesCache.set(id, payload)
             )
             expansionSegments.push(...segments)
-            if (failedIds.length && expansionOptions.includePublisherMagazines) {
+            if (failedIds.length) {
               failedMessages.push(`出版社雑誌(${failedIds.length})`)
             }
+          }
+        }
 
-            if (expansionOptions.includePublisherMagazineWorks) {
-              const magazineElementIds = collectMagazineElementIds(nodes, expansionSegments, publisherMagazinesCache)
-              if (magazineElementIds.length) {
-                try {
-                  const workGraph = await getMagazineWorkGraph(
-                    magazineElementIds,
-                    DEFAULT_MAGAZINE_WORK_LIMIT
-                  )
-                  expansionSegments.push({
-                    nodes: workGraph.nodes || [],
-                    edges: workGraph.edges || []
-                  })
-                } catch (error) {
-                  console.error('出版社の他雑誌掲載作品取得に失敗しました:', error)
-                  failedMessages.push('出版社雑誌作品')
-                }
-              } else {
-                failedMessages.push('出版社雑誌作品(対象雑誌なし)')
-              }
+        // 出版社の他雑誌掲載作品: 出版社ノードの有無に関わらず、収集済みの雑誌から作品グラフを取得
+        if (expansionOptions.includePublisherMagazineWorks) {
+          const magazineElementIds = collectMagazineElementIds(nodes, expansionSegments, publisherMagazinesCache)
+          console.log('Magazine element IDs collected:', magazineElementIds)
+          if (magazineElementIds.length) {
+            try {
+              const workGraph = await getMagazineWorkGraph(
+                magazineElementIds,
+                DEFAULT_MAGAZINE_WORK_LIMIT
+              )
+              console.log('Work graph response:', {
+                nodes: workGraph.nodes?.length || 0,
+                edges: workGraph.edges?.length || 0,
+                sampleNode: workGraph.nodes?.[0],
+                sampleEdge: workGraph.edges?.[0]
+              })
+              expansionSegments.push({
+                nodes: workGraph.nodes || [],
+                edges: workGraph.edges || []
+              })
+            } catch (error) {
+              console.error('出版社の他雑誌掲載作品取得に失敗しました:', error)
+              failedMessages.push('出版社雑誌作品')
             }
           }
         }
 
         if (expansionSegments.length) {
+          console.log('Merging expansion segments:', expansionSegments.length)
           const mergedGraph = mergeGraphSegments(nodes, result.edges || [], expansionSegments)
+          console.log('Merged graph:', {
+            nodes: mergedGraph.nodes.length,
+            edges: mergedGraph.edges.length,
+            sampleNodes: mergedGraph.nodes.slice(0, 3),
+            sampleEdges: mergedGraph.edges.slice(0, 3)
+          })
           graphData.nodes = mergedGraph.nodes
           graphData.edges = mergedGraph.edges
         }
@@ -368,7 +384,21 @@ export default {
           finalQuery: searchParams.query,
           nodesCount: graphData.nodes.length,
           edgesCount: graphData.edges.length,
-          searchResults: graphData.nodes.filter(n => n.isSearchResult).length
+          searchResults: graphData.nodes.filter(n => n.isSearchResult).length,
+          nodeTypes: graphData.nodes.reduce((acc, n) => {
+            acc[n.type] = (acc[n.type] || 0) + 1
+            return acc
+          }, {}),
+          edgeTypes: graphData.edges.reduce((acc, e) => {
+            acc[e.type] = (acc[e.type] || 0) + 1
+            return acc
+          }, {}),
+          sampleEdges: graphData.edges.slice(0, 5).map(e => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            type: e.type
+          }))
         })
       } catch (error) {
         console.error('検索エラー:', error)
