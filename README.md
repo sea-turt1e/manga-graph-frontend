@@ -10,10 +10,10 @@
 バックエンドのリポジトリは[こちら（Manga Graph）](https://github.com/sea-turt1e/manga-graph)にあります。
 
 ## デモ
-このAPIを利用したデモは[Manga Graph Visualizer](https://mangagraph.netlify.app/)として公開されており、インタラクティブなグラフ操作が可能です。  
+このAPIを利用したデモは[Manga Graph](https://mangagraph.netlify.app/)にて公開されており、インタラクティブなグラフ操作が可能です。  
 （ただし一部のノードはサーバー負荷削減のため省いています。）
 
-[![Manga_Graph_Visualizer_demo](/images/manga_graph_visualizer.gif)](https://mangagraph.netlify.app/)
+[![Manga_Graph_demo](/images/manga_graph_visualizer.gif)](https://mangagraph.netlify.app/)
 
 ## 主な機能
 

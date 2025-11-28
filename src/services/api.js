@@ -245,6 +245,111 @@ export const searchTitleSimilarity = async (
   }
 }
 
+// ベクトル類似度検索（タイトル曖昧検索）
+export const searchVectorSimilarity = async (
+  query,
+  embeddingType = 'title_en',
+  limit = 5,
+  threshold = 0.5,
+  includeHentai = false
+) => {
+  try {
+    const response = await apiV1.post('/manga-anime-neo4j/vector/similarity', {
+      query,
+      embedding_type: embeddingType,
+      embedding_dims: 256,
+      limit,
+      threshold,
+      include_hentai: includeHentai
+    })
+    return response.data
+  } catch (error) {
+    console.error(`Vector similarity API error (${embeddingType}):`, error)
+    throw error
+  }
+}
+
+// タイトル曖昧検索（英語・日本語両方で検索して結果をマージ）
+export const searchTitleCandidates = async (
+  query,
+  limit = 5,
+  threshold = 0.5,
+  includeHentai = false
+) => {
+  try {
+    // 英語タイトルと日本語タイトルの両方で検索
+    const [enResults, jaResults] = await Promise.all([
+      searchVectorSimilarity(query, 'title_en', limit, threshold, includeHentai),
+      searchVectorSimilarity(query, 'title_ja', limit, threshold, includeHentai)
+    ])
+
+    // 結果をマージして重複を除去し、similarityでソート
+    const candidateMap = new Map()
+
+    const processResults = (results, embeddingType) => {
+      if (!results || !Array.isArray(results.results)) return
+      results.results.forEach((item) => {
+        const key = item.mal_id || item.title_en || item.title_ja
+        if (!key) return
+        
+        // similarity または score フィールドを使用（APIレスポンスの形式に対応）
+        const similarityValue = typeof item.similarity_score === 'number' ? item.similarity_score 
+          : 0
+        
+        const existing = candidateMap.get(key)
+        if (!existing || similarityValue > existing.similarity) {
+          candidateMap.set(key, {
+            ...item,
+            similarity: similarityValue,
+            embeddingType
+          })
+        }
+      })
+    }
+
+    processResults(enResults, 'title_en')
+    processResults(jaResults, 'title_ja')
+
+    // similarityでソートして返す
+    const sortedCandidates = Array.from(candidateMap.values())
+      .sort((a, b) => b.similarity - a.similarity)
+
+    return {
+      candidates: sortedCandidates,
+      totalCount: sortedCandidates.length
+    }
+  } catch (error) {
+    console.error('Title candidates search error:', error)
+    throw error
+  }
+}
+
+// グラフ検索（mode=simple, lang=english固定）
+export const searchGraphSimple = async (query, limit = 50) => {
+  const sanitizedLimit = Math.min(100, Math.max(1, Number(limit) || 50))
+  try {
+    const response = await apiV1.get('/manga-anime-neo4j/graph', {
+      params: {
+        q: query,
+        limit: sanitizedLimit,
+        lang: 'english',
+        mode: 'simple'
+      }
+    })
+    return {
+      ...response.data,
+      meta: {
+        ...(response.data?.meta || {}),
+        appliedLang: 'english',
+        appliedMode: 'simple'
+      }
+    }
+  } catch (error) {
+    console.error('Graph simple search API error:', error)
+    throw error
+  }
+}
+
 export const getCreatorWorks = async (creatorName, limit = 50) => {
   try {
     const response = await apiV1.get(`/media-arts/creator/${encodeURIComponent(creatorName)}`, {
@@ -336,7 +441,7 @@ export const getPublisherMagazines = async (publisherNodeId, limit = 5) => {
   }
 }
 
-export const getMagazineWorkGraph = async (magazineElementIds, workLimit = 3) => {
+export const getMagazineWorkGraph = async (magazineElementIds, workLimit = 3, referenceWorkId = null, includeHentai = false) => {
   if (!Array.isArray(magazineElementIds) || magazineElementIds.length === 0) {
     return { nodes: [], edges: [] }
   }
@@ -344,7 +449,13 @@ export const getMagazineWorkGraph = async (magazineElementIds, workLimit = 3) =>
   const sanitizedLimit = Math.min(500, Math.max(1, Number(workLimit) || 3))
   const payload = {
     magazine_element_ids: magazineElementIds,
-    work_limit: sanitizedLimit
+    work_limit: sanitizedLimit,
+    include_hentai: includeHentai
+  }
+  
+  // reference_work_idが指定されている場合のみ追加（element_id形式: "4:xxx:123"）
+  if (referenceWorkId) {
+    payload.reference_work_id = String(referenceWorkId)
   }
 
   try {

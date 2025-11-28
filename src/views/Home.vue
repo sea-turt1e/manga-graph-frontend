@@ -11,6 +11,43 @@
           :graph-data="graphData"
           :loading="loading"
         />
+        
+        <!-- 候補選択ポップアップ -->
+        <transition name="popup-fade">
+          <div v-if="showCandidatesPopup" class="candidates-popup-overlay" @click.self="closeCandidatesPopup">
+            <div class="candidates-popup">
+              <div class="candidates-popup-header">
+                <h3>「{{ candidatesQuery }}」の検索結果が見つかりませんでした</h3>
+                <p>以下の候補から選択してください：</p>
+              </div>
+              
+              <div v-if="loadingCandidates" class="candidates-loading">
+                <div class="loading-spinner"></div>
+                <span>候補を検索中...</span>
+              </div>
+              
+              <div v-else-if="candidates.length === 0" class="candidates-empty">
+                候補が見つかりませんでした。別のキーワードをお試しください。
+              </div>
+              
+              <ul v-else class="candidates-list">
+                <li 
+                  v-for="(candidate, index) in candidates" 
+                  :key="candidate.mal_id || index"
+                  class="candidate-item"
+                  @click="selectCandidate(candidate)"
+                >
+                  <span class="candidate-title">{{ candidate.title_ja || candidate.title_en || '-' }}</span>
+                  <span class="candidate-similarity">{{ formatSimilarity(candidate.similarity) }}</span>
+                </li>
+              </ul>
+              
+              <button @click="closeCandidatesPopup" class="candidates-close-button">
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </transition>
       </div>
     </main>
     <!-- Toast -->
@@ -32,7 +69,9 @@ import {
   getMagazineRelatedWorks,
   getMagazineWorkGraph,
   getPublisherMagazines,
-  searchMediaArtsWithRelated
+  searchGraphSimple,
+  searchMediaArtsWithRelated,
+  searchTitleCandidates
 } from '../services/api'
 
 const DEFAULT_EXPANSION_OPTIONS = {
@@ -62,6 +101,13 @@ export default {
     const loading = ref(false)
     const lastSearchMeta = ref({ lang: null, mode: null })
     const toast = reactive({ visible: false, message: '', type: 'info', timer: null })
+    
+    // 候補選択ポップアップ用の状態
+    const showCandidatesPopup = ref(false)
+    const loadingCandidates = ref(false)
+    const candidates = ref([])
+    const candidatesQuery = ref('')
+    const lastSearchParams = ref(null)
 
     const showToast = (message, type = 'info', duration = 3000) => {
       toast.message = message
@@ -69,6 +115,14 @@ export default {
       toast.visible = true
       if (toast.timer) clearTimeout(toast.timer)
       toast.timer = setTimeout(() => { toast.visible = false }, duration)
+    }
+    
+    // similarity値をフォーマット（NaN対応）
+    const formatSimilarity = (value) => {
+      if (typeof value !== 'number' || isNaN(value)) {
+        return '-'
+      }
+      return `${(value * 100).toFixed(1)}%`
     }
 
     const resolveNodeId = (node = {}) => {
@@ -207,6 +261,16 @@ export default {
       ))
     }
 
+    // 検索でヒットしたworkノードのelement_idを取得（reference_work_id用）
+    const getSearchedWorkElementId = (nodes = []) => {
+      const searchedWork = nodes.find(
+        (node) => node.type === 'work' && (node.isSearchResult || node.isSearched)
+      )
+      if (!searchedWork) return null
+      // element_id形式（"4:xxx:123"）を返す
+      return resolveElementId(searchedWork)
+    }
+
     const fetchSegmentsInBatches = async (ids, fetcher, batchSize = SUBGRAPH_BATCH_SIZE, onSuccess) => {
       const segments = []
       const failedIds = []
@@ -274,8 +338,11 @@ export default {
 
         const hasData = (result?.nodes?.length || 0) > 0 || (result?.edges?.length || 0) > 0
 
+        // 検索結果が空の場合、曖昧検索で候補を取得
         if (!hasData) {
-          showToast('指定条件では結果が見つかりませんでした。別のキーワードをお試しください。', 'warn')
+          await fetchAndShowCandidates(originalQuery, searchParams)
+          loading.value = false
+          return
         }
 
         const searchQuery = (searchParams.query || originalQuery).toLowerCase()
@@ -338,12 +405,14 @@ export default {
         // 出版社の他雑誌掲載作品: 出版社ノードの有無に関わらず、収集済みの雑誌から作品グラフを取得
         if (expansionOptions.includePublisherMagazineWorks) {
           const magazineElementIds = collectMagazineElementIds(nodes, expansionSegments, publisherMagazinesCache)
-          console.log('Magazine element IDs collected:', magazineElementIds)
+          const referenceWorkId = getSearchedWorkElementId(nodes)
+          console.log('Magazine element IDs collected:', magazineElementIds, 'Reference work ID:', referenceWorkId)
           if (magazineElementIds.length) {
             try {
               const workGraph = await getMagazineWorkGraph(
                 magazineElementIds,
-                DEFAULT_MAGAZINE_WORK_LIMIT
+                DEFAULT_MAGAZINE_WORK_LIMIT,
+                referenceWorkId
               )
               console.log('Work graph response:', {
                 nodes: workGraph.nodes?.length || 0,
@@ -410,10 +479,197 @@ export default {
       }
     }
 
+    // 曖昧検索で候補を取得して表示
+    const fetchAndShowCandidates = async (query, searchParams) => {
+      candidatesQuery.value = query
+      lastSearchParams.value = searchParams
+      showCandidatesPopup.value = true
+      loadingCandidates.value = true
+      candidates.value = []
+      
+      try {
+        const result = await searchTitleCandidates(query, 10, 0.3, false)
+        candidates.value = result?.candidates || []
+        loadingCandidates.value = false
+        
+        if (candidates.value.length === 0) {
+          showToast('候補が見つかりませんでした。別のキーワードをお試しください。', 'warn')
+        }
+      } catch (error) {
+        console.error('候補検索エラー:', error)
+        candidates.value = []
+        loadingCandidates.value = false
+        showToast('候補の検索中にエラーが発生しました。', 'error')
+      }
+    }
+    
+    // 候補選択ポップアップを閉じる
+    const closeCandidatesPopup = () => {
+      showCandidatesPopup.value = false
+      loadingCandidates.value = false
+      candidates.value = []
+      candidatesQuery.value = ''
+      lastSearchParams.value = null
+    }
+
+    // 候補を選択して再検索
+    const selectCandidate = async (candidate) => {
+      closeCandidatesPopup()
+      loading.value = true
+      
+      const searchParams = lastSearchParams.value || {}
+      const limit = searchParams.limit || 50
+      const expansionOptions = {
+        ...DEFAULT_EXPANSION_OPTIONS,
+        ...(searchParams?.expansions || {})
+      }
+      
+      // 英語タイトルを優先して検索クエリとして使用
+      const query = candidate.title_en || candidate.title_ja || ''
+      // マッチング用に英語・日本語両方のタイトルを保持
+      const candidateTitleEn = (candidate.title_en || '').toLowerCase()
+      const candidateTitleJa = (candidate.title_ja || '').toLowerCase()
+
+      lastSearchMeta.value = { lang: null, mode: null }
+      
+      try {
+        // 選択した候補のタイトルでmode=simple, lang=englishで検索
+        const result = await searchGraphSimple(query, limit)
+
+        lastSearchMeta.value = {
+          lang: result?.meta?.appliedLang ?? 'english',
+          mode: result?.meta?.appliedMode ?? 'simple'
+        }
+
+        const hasData = (result?.nodes?.length || 0) > 0 || (result?.edges?.length || 0) > 0
+
+        if (!hasData) {
+          showToast('選択した候補の検索結果が見つかりませんでした。', 'warn')
+          graphData.nodes = []
+          graphData.edges = []
+          loading.value = false
+          return
+        }
+
+        const nodes = (result.nodes || []).map(node => {
+          const japaneseName = (node.properties?.japanese_name || '').toLowerCase()
+          const englishName = (node.properties?.english_name || node.properties?.name || '').toLowerCase()
+          const nodeTitle = (node.title || node.properties?.title || '').toLowerCase()
+          
+          // 候補の英語・日本語タイトルのいずれかとマッチするか確認
+          const isSearchHit = node.type === 'work' && (
+            (candidateTitleEn && (japaneseName.includes(candidateTitleEn) || englishName.includes(candidateTitleEn) || nodeTitle.includes(candidateTitleEn) || candidateTitleEn.includes(englishName) || candidateTitleEn.includes(nodeTitle))) ||
+            (candidateTitleJa && (japaneseName.includes(candidateTitleJa) || englishName.includes(candidateTitleJa) || nodeTitle.includes(candidateTitleJa) || candidateTitleJa.includes(japaneseName) || candidateTitleJa.includes(nodeTitle)))
+          )
+          
+          const resolvedTitle = node.type === 'work'
+            ? (node.properties?.japanese_name || node.title || node.properties?.title || '')
+            : (node.title || node.properties?.title || '')
+            
+          return {
+            ...node,
+            title: resolvedTitle,
+            isSearchResult: isSearchHit,
+            isSearched: isSearchHit,
+            color: isSearchHit ? '#ff6b6b' : (node.color || '#4fc3f7')
+          }
+        })
+
+        graphData.nodes = nodes
+        graphData.edges = result.edges || []
+
+        // 関連データの取得（handleSearchと同じ処理）
+        const expansionSegments = []
+        const failedMessages = []
+        const publisherMagazinesCache = new Map()
+
+        if (expansionOptions.includeAuthorWorks) {
+          const authorIds = collectIdsByType(nodes, 'author')
+          if (authorIds.length) {
+            const { segments, failedIds } = await fetchSegmentsInBatches(authorIds, (id) => getAuthorRelatedWorks(id, 5))
+            expansionSegments.push(...segments)
+            if (failedIds.length) failedMessages.push(`作者(${failedIds.length})`)
+          }
+        }
+
+        if (expansionOptions.includeMagazineWorks) {
+          const magazineIds = collectIdsByType(nodes, 'magazine')
+          if (magazineIds.length) {
+            const { segments, failedIds } = await fetchSegmentsInBatches(magazineIds, (id) => getMagazineRelatedWorks(id))
+            expansionSegments.push(...segments)
+            if (failedIds.length) failedMessages.push(`雑誌(${failedIds.length})`)
+          }
+        }
+
+        if (expansionOptions.includePublisherMagazines) {
+          const publisherIds = collectIdsByType(nodes, 'publisher')
+          if (publisherIds.length) {
+            const { segments, failedIds } = await fetchSegmentsInBatches(
+              publisherIds,
+              (id) => getPublisherMagazines(id, PUBLISHER_MAGAZINE_LIMIT),
+              SUBGRAPH_BATCH_SIZE,
+              (id, payload) => publisherMagazinesCache.set(id, payload)
+            )
+            expansionSegments.push(...segments)
+            if (failedIds.length) {
+              failedMessages.push(`出版社雑誌(${failedIds.length})`)
+            }
+          }
+        }
+
+        if (expansionOptions.includePublisherMagazineWorks) {
+          const magazineElementIds = collectMagazineElementIds(nodes, expansionSegments, publisherMagazinesCache)
+          const referenceWorkId = getSearchedWorkElementId(nodes)
+          console.log('Magazine element IDs collected:', magazineElementIds, 'Reference work ID:', referenceWorkId)
+          if (magazineElementIds.length) {
+            try {
+              const workGraph = await getMagazineWorkGraph(
+                magazineElementIds,
+                DEFAULT_MAGAZINE_WORK_LIMIT,
+                referenceWorkId
+              )
+              expansionSegments.push({
+                nodes: workGraph.nodes || [],
+                edges: workGraph.edges || []
+              })
+            } catch (error) {
+              console.error('出版社の他雑誌掲載作品取得に失敗しました:', error)
+              failedMessages.push('出版社雑誌作品')
+            }
+          }
+        }
+
+        if (expansionSegments.length) {
+          const mergedGraph = mergeGraphSegments(nodes, result.edges || [], expansionSegments)
+          graphData.nodes = mergedGraph.nodes
+          graphData.edges = mergedGraph.edges
+        }
+
+        if (failedMessages.length) {
+          showToast(`一部の関連データ取得に失敗しました: ${failedMessages.join(', ')}`, 'warn')
+        }
+
+        console.log('候補選択結果:', {
+          selectedCandidate: candidate,
+          query,
+          nodesCount: graphData.nodes.length,
+          edgesCount: graphData.edges.length
+        })
+      } catch (error) {
+        console.error('候補検索エラー:', error)
+        graphData.nodes = []
+        graphData.edges = []
+        showToast('検索中にエラーが発生しました。', 'error')
+      } finally {
+        loading.value = false
+      }
+    }
+
     const handleClear = () => {
       graphData.nodes = []
       graphData.edges = []
       lastSearchMeta.value = { lang: null, mode: null }
+      closeCandidatesPopup()
     }
 
     return {
@@ -421,8 +677,15 @@ export default {
       loading,
       lastSearchMeta,
       toast,
+      showCandidatesPopup,
+      loadingCandidates,
+      candidates,
+      candidatesQuery,
       handleSearch,
       handleClear,
+      selectCandidate,
+      closeCandidatesPopup,
+      formatSimilarity,
       showToast
     }
   }
@@ -445,6 +708,157 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+/* 候補選択ポップアップ */
+.candidates-popup-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.candidates-popup {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.candidates-popup-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.candidates-popup-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.candidates-popup-header p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.candidates-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  gap: 12px;
+  color: #666;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.candidates-empty {
+  padding: 40px;
+  text-align: center;
+  color: #999;
+}
+
+.candidates-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto;
+  max-height: 400px;
+}
+
+.candidate-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 24px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.candidate-item:hover {
+  background: #f0f4ff;
+}
+
+.candidate-item:last-child {
+  border-bottom: none;
+}
+
+.candidate-title {
+  font-size: 0.95rem;
+  color: #333;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 12px;
+}
+
+.candidate-similarity {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #667eea;
+  background: #f0f4ff;
+  padding: 4px 10px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.candidates-close-button {
+  margin: 16px 24px;
+  padding: 12px;
+  background: #f5f5f5;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.candidates-close-button:hover {
+  background: #e0e0e0;
+}
+
+/* ポップアップのアニメーション */
+.popup-fade-enter-active, .popup-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.popup-fade-enter-active .candidates-popup, .popup-fade-leave-active .candidates-popup {
+  transition: transform 0.2s ease;
+}
+
+.popup-fade-enter-from, .popup-fade-leave-to {
+  opacity: 0;
+}
+
+.popup-fade-enter-from .candidates-popup, .popup-fade-leave-to .candidates-popup {
+  transform: scale(0.95);
 }
 
 /* Toast */
@@ -484,6 +898,11 @@ export default {
 
   .graph-area {
     min-height: 60vh; /* グラフ領域に十分な高さを確保 */
+  }
+  
+  .candidates-popup {
+    width: 95%;
+    max-height: 70%;
   }
 }
 </style>

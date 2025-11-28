@@ -4,7 +4,7 @@
       <div class="header-top">
         <h1 class="title">
           <span class="icon">📚</span>
-          Manga Graph Visualizer
+          Manga Graph
         </h1>
         <nav class="navigation">
           <router-link to="/" class="nav-link">ホーム</router-link>

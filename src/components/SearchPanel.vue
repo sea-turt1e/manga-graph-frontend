@@ -66,8 +66,6 @@
         >
           クリア
         </button>
-
-        
       </div>
 
       <!-- <div class="search-tips">
@@ -311,8 +309,6 @@ export default {
 .clear-button:hover {
   background: #e0e0e0;
 }
-
-/* 候補タイトル表示は親ビュー側で表示するため、このコンポーネントからは削除 */
 
 .search-tips {
   flex: 1 0 auto; /* コンテンツ量に応じて伸縮 */

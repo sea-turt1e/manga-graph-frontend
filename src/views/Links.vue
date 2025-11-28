@@ -20,10 +20,10 @@
                 class="link-card"
               >
                 <div class="link-icon">
-                  <img :src="graphCover" alt="Manga Graph Visualizer" class="link-img" />
+                  <img :src="graphCover" alt="Manga Graph" class="link-img" />
                 </div>
                 <div class="link-content">
-                  <h3>Manga Graph Visualizer</h3>
+                  <h3>Manga Graph</h3>
                   <p>漫画のグラフDBを可視化</p>
                 </div>
                 <div class="external-icon">↗</div>
