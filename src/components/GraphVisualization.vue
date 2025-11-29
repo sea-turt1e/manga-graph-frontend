@@ -116,6 +116,7 @@ export default {
     }
 
     const edgeColors = {
+      // 小文字版
       created: '#16a34a',          // green-600
       authored: '#16a34a',
       published: '#f59e0b',        // amber-500
@@ -126,6 +127,22 @@ export default {
       influenced_by: '#7c3aed',
       collaborated_with: '#2563eb', // blue-600
       worked_with: '#2563eb',
+      serialized_in: '#f59e0b',    // amber-500（連載）
+      created_by: '#16a34a',       // green-600（制作）
+      // 大文字版（Neo4jからのレスポンス用）
+      CREATED: '#16a34a',
+      AUTHORED: '#16a34a',
+      PUBLISHED: '#f59e0b',
+      PUBLISHED_BY: '#a855f7',
+      PUBLISHED_IN: '#f59e0b',
+      SAME_PUBLISHER: '#a855f7',
+      BELONGS_TO: '#f59e0b',
+      MENTOR_OF: '#7c3aed',
+      INFLUENCED_BY: '#7c3aed',
+      COLLABORATED_WITH: '#2563eb',
+      WORKED_WITH: '#2563eb',
+      SERIALIZED_IN: '#f59e0b',
+      CREATED_BY: '#16a34a',       // green-600（制作）
       default: '#64748b'           // slate-500
     }
 
@@ -628,21 +645,21 @@ export default {
             }
           },
           {
-            selector: 'edge[type="created"], edge[type="authored"]',
+            selector: 'edge[type="created"], edge[type="authored"], edge[type="CREATED"], edge[type="AUTHORED"], edge[type="created_by"], edge[type="CREATED_BY"]',
             style: {
               'line-style': 'solid',
               'width': 3.5
             }
           },
           {
-            selector: 'edge[type="published"], edge[type="published_by"], edge[type="belongs_to"]',
+            selector: 'edge[type="published"], edge[type="published_by"], edge[type="belongs_to"], edge[type="serialized_in"], edge[type="PUBLISHED"], edge[type="PUBLISHED_BY"], edge[type="PUBLISHED_IN"], edge[type="BELONGS_TO"], edge[type="SERIALIZED_IN"]',
             style: {
               'line-style': 'solid',
               'width': 3.5
             }
           },
           {
-            selector: 'edge[type="same_publisher"]',
+            selector: 'edge[type="same_publisher"], edge[type="SAME_PUBLISHER"]',
             style: {
               'line-style': 'dashed',
               'line-dash-pattern': [6, 6],
@@ -651,14 +668,14 @@ export default {
             }
           },
           {
-            selector: 'edge[type="mentor_of"], edge[type="influenced_by"]',
+            selector: 'edge[type="mentor_of"], edge[type="influenced_by"], edge[type="MENTOR_OF"], edge[type="INFLUENCED_BY"]',
             style: {
               'line-style': 'solid',
               'width': 4
             }
           },
           {
-            selector: 'edge[type="collaborated_with"], edge[type="worked_with"]',
+            selector: 'edge[type="collaborated_with"], edge[type="worked_with"], edge[type="COLLABORATED_WITH"], edge[type="WORKED_WITH"]',
             style: {
               'line-style': 'dashed',
               'line-dash-pattern': [8, 6],
@@ -998,6 +1015,7 @@ export default {
 
       const getEdgeLabel = (type) => {
         const labels = {
+          // 小文字版
           created: '創作',
           authored: '著',
           published: '掲載',
@@ -1008,10 +1026,31 @@ export default {
           influenced_by: '影響',
           collaborated_with: '共作',
           worked_with: '共作',
-          PUBLISHED_IN: '掲載'
+          serialized_in: '連載',
+          created_by: '制作',
+          // 大文字版（Neo4jからのレスポンス用）
+          CREATED: '創作',
+          AUTHORED: '著',
+          PUBLISHED: '掲載',
+          PUBLISHED_BY: '発行',
+          PUBLISHED_IN: '掲載',
+          SAME_PUBLISHER: '同出版社',
+          BELONGS_TO: '掲載',
+          MENTOR_OF: '師弟',
+          INFLUENCED_BY: '影響',
+          COLLABORATED_WITH: '共作',
+          WORKED_WITH: '共作',
+          SERIALIZED_IN: '連載',
+          CREATED_BY: '作者'
         }
-        return labels[type] || ''
+        // 小文字に変換して検索
+        const normalizedType = type?.toLowerCase()
+        return labels[type] || labels[normalizedType] || type || ''
       }
+
+      // エッジタイプのログ出力（デバッグ用）
+      const edgeTypes = [...new Set(props.graphData.edges.map(e => e.type))]
+      console.log('Edge types in graph data:', edgeTypes)
 
       const elements = [
         ...initialNodes,
