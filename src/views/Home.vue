@@ -514,11 +514,14 @@ export default {
 
     // 候補を選択して再検索
     const selectCandidate = async (candidate) => {
+      // closeCandidatesPopupを呼ぶ前にsearchParamsを保存
+      const searchParams = lastSearchParams.value || {}
+      const limit = Math.min(100, Math.max(1, Number(searchParams?.limit) || 50))
+      console.log('selectCandidate: searchParams.limit =', searchParams?.limit, 'sanitized limit =', limit)
+      
       closeCandidatesPopup()
       loading.value = true
       
-      const searchParams = lastSearchParams.value || {}
-      const limit = searchParams.limit || 50
       const expansionOptions = {
         ...DEFAULT_EXPANSION_OPTIONS,
         ...(searchParams?.expansions || {})
