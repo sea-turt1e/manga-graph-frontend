@@ -10,17 +10,17 @@
 バックエンドのリポジトリは[こちら（Manga Graph）](https://github.com/sea-turt1e/manga-graph)にあります。
 
 ## デモ
-このAPIを利用したデモは[Manga Graph Visualizer](https://mangagraph.netlify.app/)として公開されており、インタラクティブなグラフ操作が可能です。  
+このAPIを利用したデモは[Manga Graph](https://mangagraph.netlify.app/)にて公開されており、インタラクティブなグラフ操作が可能です。  
 （ただし一部のノードはサーバー負荷削減のため省いています。）
 
-[![Manga_Graph_Visualizer_demo](/images/manga_graph_visualizer.gif)](https://mangagraph.netlify.app/)
+[![Manga_Graph_demo](/images/manga_graph_visualizer.gif)](https://mangagraph.netlify.app/)
 
 ## 主な機能
 
-- **検索機能**: 作品名による検索と関連データ表示
+- **検索機能**: 作品名による検索と関連データ表示（取得上限のみ調整可能、lang/mode のフォールバックでOpenAPI推奨順に探索）
 - **グラフ可視化**: Cytoscape.jsによるインタラクティブなノード・エッジ表示
 - **関係表示**: 作品（緑）、作者（青）、雑誌（オレンジ）の色分け表示
-- **検索オプション**: 検索深度調整と関連データ込み検索
+- **検索オプション**: 取得上限（limit）を指定可能
 - **レスポンシブ対応**: モバイルデバイスに対応したUI
 
 ## 技術スタック
@@ -89,7 +89,8 @@ src/
 アプリケーションは以下のエンドポイントを使用します：
 
 - `POST /v1/search` - 基本検索機能
-- `GET /v1/neo4j/search` - 関連データ込み検索
+- `GET /v1/manga-anime-neo4j/graph` - Neo4jグラフ（漫画・アニメ）検索（lang=ja/en × mode=simple/fulltext/ranked を順番にフォールバック）
+- `GET /v1/neo4j/vector/title-similarity` - タイトル類似度検索（曖昧検索）
 - `GET /v1/media-arts/*` - 文化庁メディア芸術データベース連携
 - `GET /health` - ヘルスチェック
 

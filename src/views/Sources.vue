@@ -11,46 +11,13 @@
 
     <ul class="sources-list">
       <li>
-        <a href="https://mediaarts-db.artmuseums.go.jp/" target="_blank" rel="noopener noreferrer">
-          メディア芸術データベース
+        <a href="https://www.kaggle.com/datasets/hamzaashfaque1999/myanimelist-scraped-data" target="_blank" rel="noopener noreferrer">
+          MyAnimeList Anime & Manga Dataset (July 2025)
         </a>
         <ul>
           <li>
-            出典：独立行政法人国立美術館国立アートリサーチセンター「メディア芸術データベース」
-            （
-            <a href="https://mediaarts-db.artmuseums.go.jp/" target="_blank" rel="noopener noreferrer">
-              https://mediaarts-db.artmuseums.go.jp/
-            </a>
-            ）
-          </li>
-          <li>
-            独立行政法人国立美術館国立アートリサーチセンター「メディア芸術データベース」（
-            <a href="https://mediaarts-db.artmuseums.go.jp/" target="_blank" rel="noopener noreferrer">
-              https://mediaarts-db.artmuseums.go.jp/
-            </a>
-            ）を加工してデータを作成
-          </li>
-        </ul>
-      </li>
-      <li>
-        <a href="https://openbd.jp/" target="_blank" rel="noopener noreferrer">OpenBD</a>
-        <ul>
-          <li>
-            「OpenBD」（
-            <a href="https://openbd.jp/" target="_blank" rel="noopener noreferrer">https://openbd.jp/</a>
-            ）を利用しています。
-          </li>
-        </ul>
-      </li>
-      <li>
-        <a href="https://www.kaggle.com/datasets/azathoth42/myanimelist" target="_blank" rel="noopener noreferrer">
-          MyAnimeList Dataset
-        </a>
-        <ul>
-          <li>
-            本プロジェクトは MyAnimeList Dataset（MyAnimeList.net）のデータを利用しています。データベースは
-            Open Database License (ODbL) v1.0、個々のコンテンツは Database Contents License (DbCL) v1.0 に基づきます。
-            ライセンス条件に従い帰属表示と通知保持を行っています。
+            本プロジェクトは MyAnimeList Anime & Manga Dataset (July 2025)のデータを利用しています。データベースは
+            MITライセンスの下で提供されており、適切な帰属表示を行っています。
           </li>
         </ul>
       </li>

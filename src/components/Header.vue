@@ -4,7 +4,7 @@
       <div class="header-top">
         <h1 class="title">
           <span class="icon">📚</span>
-          Manga Graph Visualizer
+          Manga Graph
         </h1>
         <nav class="navigation">
           <router-link to="/" class="nav-link">ホーム</router-link>
@@ -12,7 +12,6 @@
           <router-link to="/sources" class="nav-link" aria-label="出典ページへ">出典</router-link>
         </nav>
       </div>
-      <p class="subtitle">メディア芸術データベースを活用した漫画関係図</p>
     </div>
   </header>
 </template>

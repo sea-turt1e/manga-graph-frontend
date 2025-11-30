@@ -26,100 +26,38 @@
         </div>
         
         <div class="search-options">
-          <!-- <label class="option-label">
-            <input 
-              v-model="searchDepth" 
-              type="range" 
-              min="1" 
-              max="3" 
-              class="depth-slider"
-            />
-            検索深度: {{ searchDepth }}
-          </label> -->
-          
-          <label class="option-checkbox">
-            <input 
-              v-model="includeRelated" 
-              type="checkbox"
-              class="related-checkbox"
-            />
-            関連作品を表示
-          </label>
-
           <label class="option-label">
-            同誌内の最大件数:
+            入力漫画名の取得上限:
             <input 
               v-model.number="searchLimit" 
               type="number" 
               min="1" 
-              max="100" 
+              max="30" 
               class="limit-input"
             />
-            （1~100）
+            （1〜30）
+            ※入力した漫画名に対してヒットした件数の上限を設定します。
           </label>
 
-          <!-- 同出版社・他誌情報の表示制御 -->
-          <label class="option-checkbox">
-            <input 
-              v-model="includeSamePublisherOtherMagazines" 
-              type="checkbox"
-              class="related-checkbox"
-            />
-            同出版社の他誌も表示
-          </label>
-
-          <label class="option-label">
-            他誌の最大件数:
-            <input 
-              v-model.number="samePublisherOtherMagazinesLimit" 
-              type="number" 
-              min="0" 
-              max="10" 
-              class="limit-input"
-            />
-            （1~10）
-          </label>
-
-          <label class="option-label">
-            類似度閾値:
-            <input
-              v-model.number="similarityThreshold"
-              type="number"
-              min="0"
-              max="1"
-              step="0.05"
-              class="limit-input"
-            />
-            （0〜1）
-          </label>
-
-          <!-- <label class="option-label">
-            埋め込み方式:
-            <select v-model="embeddingMethod" class="embedding-select">
-              <option value="huggingface">huggingface</option>
-              <option value="hash">hash</option>
-              <option value="openai">openai</option>
-            </select>
-          </label> -->
-
-          <!-- 新規: 巻数でのフィルタ＆ソート -->
-          <label class="option-label">
-            最小巻数:
-            <input
-              v-model.number="minTotalVolumes"
-              type="number"
-              min="0"
-              class="limit-input"
-            />
-          </label>
-
-          <label class="option-label">
-            巻数並び順:
-            <select v-model="sortTotalVolumes" class="embedding-select">
-              <option value="desc">desc</option>
-              <option value="asc">asc</option>
-            </select>
-          </label>
+          <!-- <div class="expansion-options">
+            <p class="expansion-title">関連データの追加表示</p>
+            <label class="option-checkbox">
+              <input type="checkbox" v-model="expansions.includeAuthorWorks" />
+              作者の他作品（最大5件）
+            </label>
+            <label class="option-checkbox">
+              <input type="checkbox" v-model="expansions.includeMagazineWorks" />
+              同じ雑誌の他作品
+            </label>
+            <label class="option-checkbox">
+              <input type="checkbox" v-model="expansions.includePublisherMagazines" />
+              出版社の他雑誌
+            </label>
+            <label class="option-checkbox">
+              <input type="checkbox" v-model="expansions.includePublisherMagazineWorks" />
+              出版社の他雑誌掲載作品
+            </label>
+          </div> -->
         </div>
         
         <button 
@@ -128,8 +66,6 @@
         >
           クリア
         </button>
-
-        
       </div>
 
       <!-- <div class="search-tips">
@@ -146,37 +82,30 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { reactive, ref } from 'vue';
 
 export default {
   name: 'SearchPanel',
   emits: ['search', 'clear'],
   setup(props, { emit }) {
     const searchQuery = ref('')
-    const searchDepth = ref(2)
-    const includeRelated = ref(true)
-    const searchLimit = ref(10)
+    const searchLimit = ref(3)
     const isComposing = ref(false)
-    const similarityThreshold = ref(0.8)
-    const embeddingMethod = ref('huggingface')
-  const minTotalVolumes = ref(5)
-  const sortTotalVolumes = ref('desc')
-  const includeSamePublisherOtherMagazines = ref(true)
-  const samePublisherOtherMagazinesLimit = ref(5)
+    const defaultExpansions = {
+      includeAuthorWorks: true,
+      includeMagazineWorks: true,
+      includePublisherMagazines: true,
+      includePublisherMagazineWorks: true
+    }
+    const expansions = reactive({ ...defaultExpansions })
 
     const handleSearch = () => {
       if (searchQuery.value.trim()) {
+        const limitValue = Math.min(100, Math.max(1, Number(searchLimit.value) || 20))
         emit('search', {
           query: searchQuery.value.trim(),
-          depth: searchDepth.value,
-          includeRelated: includeRelated.value,
-          limit: Math.min(Math.max(1, searchLimit.value), 100),
-          similarityThreshold: similarityThreshold.value,
-          embeddingMethod: embeddingMethod.value,
-          minTotalVolumes: Math.max(0, Number(minTotalVolumes.value) || 0),
-          sortTotalVolumes: sortTotalVolumes.value,
-          includeSamePublisherOtherMagazines: !!includeSamePublisherOtherMagazines.value,
-          samePublisherOtherMagazinesLimit: Math.min(10, Math.max(0, Number(samePublisherOtherMagazinesLimit.value) || 0))
+          limit: limitValue,
+          expansions: { ...expansions }
         })
       }
     }
@@ -199,26 +128,20 @@ export default {
 
     const handleClear = () => {
       searchQuery.value = ''
+      Object.assign(expansions, defaultExpansions)
       emit('clear')
     }
 
     return {
       searchQuery,
-      searchDepth,
-      includeRelated,
       searchLimit,
       isComposing,
-      similarityThreshold,
-      embeddingMethod,
-  minTotalVolumes,
-  sortTotalVolumes,
-  includeSamePublisherOtherMagazines,
-  samePublisherOtherMagazinesLimit,
+      expansions,
       handleSearch,
       handleKeyDown,
       handleKeyUp,
       handleCompositionEnd,
-  handleClear
+      handleClear
     }
   }
 }
@@ -308,6 +231,19 @@ export default {
   margin-bottom: 20px;
 }
 
+.expansion-options {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #ececec;
+}
+
+.expansion-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 10px;
+}
+
 .option-label {
   display: block;
   color: #666;
@@ -373,8 +309,6 @@ export default {
 .clear-button:hover {
   background: #e0e0e0;
 }
-
-/* 候補タイトル表示は親ビュー側で表示するため、このコンポーネントからは削除 */
 
 .search-tips {
   flex: 1 0 auto; /* コンテンツ量に応じて伸縮 */

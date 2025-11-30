@@ -50,10 +50,21 @@
     
     <div v-if="selectedNode" class="node-info-panel">
       <div class="node-info-header">
-        <h3>{{ selectedNode.label }}</h3>
+        <div class="node-info-title">
+          <h3>{{ selectedNode.label }}</h3>
+          <p v-if="selectedNode.publishingPeriod" class="publishing-period">{{ selectedNode.publishingPeriod }}</p>
+        </div>
         <button @click="selectedNode = null" class="close-button">×</button>
       </div>
       <div class="node-info-content">
+        <div v-if="selectedNode.genresDisplay" class="property-item">
+          <strong>ジャンル: </strong>
+          <span>{{ selectedNode.genresDisplay }}</span>
+        </div>
+        <div v-if="selectedNode.themesDisplay" class="property-item">
+          <strong>テーマ: </strong>
+          <span>{{ selectedNode.themesDisplay }}</span>
+        </div>
         <div v-if="selectedNode.properties && selectedNode.properties.db_url" class="property-item">
           <strong>リンク: </strong>
           <a
@@ -74,6 +85,7 @@
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
 import { nextTick, onMounted, ref, watch } from 'vue'
+import responseTranslations from '../assets/response_en_to_ja.json'
 
 cytoscape.use(coseBilkent)
 
@@ -104,6 +116,7 @@ export default {
     }
 
     const edgeColors = {
+      // 小文字版
       created: '#16a34a',          // green-600
       authored: '#16a34a',
       published: '#f59e0b',        // amber-500
@@ -114,10 +127,198 @@ export default {
       influenced_by: '#7c3aed',
       collaborated_with: '#2563eb', // blue-600
       worked_with: '#2563eb',
+      serialized_in: '#f59e0b',    // amber-500（連載）
+      created_by: '#16a34a',       // green-600（制作）
+      // 大文字版（Neo4jからのレスポンス用）
+      CREATED: '#16a34a',
+      AUTHORED: '#16a34a',
+      PUBLISHED: '#f59e0b',
+      PUBLISHED_BY: '#a855f7',
+      PUBLISHED_IN: '#f59e0b',
+      SAME_PUBLISHER: '#a855f7',
+      BELONGS_TO: '#f59e0b',
+      MENTOR_OF: '#7c3aed',
+      INFLUENCED_BY: '#7c3aed',
+      COLLABORATED_WITH: '#2563eb',
+      WORKED_WITH: '#2563eb',
+      SERIALIZED_IN: '#f59e0b',
+      CREATED_BY: '#16a34a',       // green-600（制作）
       default: '#64748b'           // slate-500
     }
 
     const searchedWorkColor = null
+
+    const translationCategories = {
+      serialization: responseTranslations?.serialization || {},
+      genres: responseTranslations?.genres || {},
+      themes: responseTranslations?.themes || {},
+      publisher: responseTranslations?.publisher || {}
+    }
+
+    const toArray = (value) => {
+      if (!value && value !== 0) return []
+      return Array.isArray(value) ? value : [value]
+    }
+
+    const translateSingle = (category, value) => {
+      const dict = translationCategories[category] || {}
+      if (value == null) return ''
+      const str = typeof value === 'string' ? value.trim() : `${value}`
+      if (!str) return ''
+      return dict[str] || str
+    }
+
+    const translateList = (category, values) => {
+      const dict = translationCategories[category] || {}
+      return toArray(values)
+        .map((item) => {
+          if (item == null) return null
+          const str = typeof item === 'string' ? item.trim() : `${item}`
+          if (!str) return null
+          return dict[str] || str
+        })
+        .filter((item) => typeof item === 'string' && item.length > 0)
+    }
+
+    const buildCommaSeparated = (items) => {
+      if (!items || items.length === 0) return ''
+      return items.join(', ')
+    }
+
+    const formatAuthorDisplayLabel = (rawLabel = '') => {
+      const trimmed = rawLabel.trim()
+      if (!trimmed) return ''
+
+      const multiAuthorSeparators = ['、', '／', '/', '＆', '&', ' and ', '・']
+      let labelForDisplay = trimmed
+
+      for (const separator of multiAuthorSeparators) {
+        if (labelForDisplay.includes(separator)) {
+          labelForDisplay = labelForDisplay.split(separator)[0].trim()
+          break
+        }
+      }
+
+      const commaMatch = labelForDisplay.match(/^([^,]+),\s*(.+)$/)
+      if (commaMatch) {
+        const surname = commaMatch[1].trim()
+        const givenName = commaMatch[2].trim()
+        return `${surname} ${givenName}`.replace(/\s+/g, ' ').trim()
+      }
+
+      return labelForDisplay
+    }
+
+    const monthNameToNumber = (name) => {
+      if (!name) return null
+      const m = name.toLowerCase().slice(0,3)
+      const map = {
+        jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+        jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12
+      }
+      return map[m] || null
+    }
+
+    const tryParseDate = (s) => {
+      if (!s) return null
+      const str = `${s}`.trim()
+      if (!str || str === 'null' || str === 'undefined') return null
+      if (str === '?' || str === '連載中') return str
+
+      // Try Date.parse first (handles formats like "Sep 27, 1999" and ISO)
+      const cleaned = str.replace(/\s+to\s+.*/i, '').replace(/,/g, '')
+      const parsed = Date.parse(cleaned)
+      if (!isNaN(parsed)) {
+        const d = new Date(parsed)
+        return { year: d.getFullYear(), month: d.getMonth() + 1 }
+      }
+
+      // Try to match "MMM dd yyyy" or "MMM d, yyyy"
+      const mMatch = str.match(/([A-Za-z]{3,})\s+\d{1,2},?\s*(\d{4})/)
+      if (mMatch) {
+        const mo = monthNameToNumber(mMatch[1])
+        const yr = Number(mMatch[2])
+        if (mo && yr) return { year: yr, month: mo }
+      }
+
+      // Try to match numeric like 1999/04 or 1999-04-24
+      const numMatch = str.match(/(\d{4})[^0-9]?(\d{1,2})?/) // year and optional month
+      if (numMatch) {
+        const yr = Number(numMatch[1])
+        const mo = numMatch[2] ? Number(numMatch[2]) : null
+        return { year: yr, month: mo }
+      }
+
+      return null
+    }
+
+    const normalizeYearMonth = (value) => {
+      if (value == null) return ''
+      const str = `${value}`.trim()
+      if (!str) return ''
+      if (str === '?' || str === '連載中') return str
+
+      const parsed = tryParseDate(str)
+      if (!parsed) return '?'
+      if (parsed === '連載中') return '連載中'
+      if (parsed === '?') return '?'
+
+      const year = parsed.year
+      const month = parsed.month ? String(parsed.month).padStart(2, '0') : '??'
+      return `${year}/${month}`
+    }
+
+    const extractPublishingDates = (properties = {}) => {
+      const raw = properties.publishing_date
+      let start = null
+      let end = null
+
+      if (Array.isArray(raw)) {
+        start = raw[0] ?? null
+        end = raw[1] ?? null
+      } else if (raw && typeof raw === 'object') {
+        start = raw.start ?? raw.begin ?? raw.first ?? null
+        end = raw.end ?? raw.finish ?? raw.last ?? null
+      } else if (typeof raw === 'string') {
+        const trimmed = raw.trim()
+        if (!trimmed) {
+          start = null
+          end = null
+        } else if (/\s+to\s+/i.test(trimmed)) {
+          const parts = trimmed.split(/\s+to\s+/i)
+          start = parts[0]?.trim() ?? null
+          end = parts[1]?.trim() ?? null
+        } else if (trimmed.includes('-')) {
+          const parts = trimmed.split('-')
+          start = parts[0]?.trim() ?? null
+          end = parts[1]?.trim() ?? null
+        } else if (trimmed.includes('~')) {
+          const parts = trimmed.split('~')
+          start = parts[0]?.trim() ?? null
+          end = parts[1]?.trim() ?? null
+        } else {
+          start = trimmed
+        }
+      }
+
+      return { start, end }
+    }
+
+    const formatPublishingPeriod = (properties = {}) => {
+      const { start, end } = extractPublishingDates(properties)
+      if (!start && !end) return ''
+
+      const normalizedStart = normalizeYearMonth(start) || '?'
+      let normalizedEnd = normalizeYearMonth(end)
+
+      if ((!normalizedEnd || normalizedEnd === '?') && properties.status === 'Publishing') {
+        normalizedEnd = '連載中'
+      } else if (!normalizedEnd) {
+        normalizedEnd = '?'
+      }
+
+      return `連載年月: ${normalizedStart} - ${normalizedEnd}`
+    }
 
     const getNodeTypeLabel = (type) => {
       const labels = {
@@ -205,12 +406,69 @@ export default {
           {
             selector: 'node[isSearched]',
             style: {
-              'border-width': 5,
-              'shadow-blur': 24,
+              'border-width': 4,
+              'border-color': '#ef4444',
+              'shadow-blur': 30,
               'shadow-color': '#f87171',
-              'shadow-opacity': 0.65,
+              'shadow-opacity': 0.8,
               'shadow-offset-x': 0,
               'shadow-offset-y': 0
+            }
+          },
+          // 検索ヒット作品ノード（表紙なし）- 薄ピンク背景
+          {
+            selector: 'node[type="work"][isSearched]:not([coverUrl])',
+            style: {
+              'background-color': '#ffe4e6',
+              'border-width': 4,
+              'border-color': '#ef4444'
+            }
+          },
+          // 検索ヒット作品ノード（表紙あり）- 枠強調
+          {
+            selector: 'node[coverUrl][isSearched]',
+            style: {
+              'border-width': 4,
+              'border-color': '#ef4444',
+              'shadow-blur': 35,
+              'shadow-color': '#f87171',
+              'shadow-opacity': 0.85
+            }
+          },
+          // 検索ヒット著者ノード - 明るめ紫
+          {
+            selector: 'node[type="author"][isSearched]',
+            style: {
+              'background-color': '#c084fc',
+              'border-width': 4,
+              'border-color': '#ef4444',
+              'shadow-blur': 30,
+              'shadow-color': '#f87171',
+              'shadow-opacity': 0.8
+            }
+          },
+          // 検索ヒット雑誌ノード - 明るめオレンジ
+          {
+            selector: 'node[type="magazine"][isSearched]',
+            style: {
+              'background-color': '#fdba74',
+              'border-width': 4,
+              'border-color': '#ef4444',
+              'shadow-blur': 30,
+              'shadow-color': '#f87171',
+              'shadow-opacity': 0.8
+            }
+          },
+          // 検索ヒット出版社ノード - 明るめ紫
+          {
+            selector: 'node[type="publisher"][isSearched]',
+            style: {
+              'background-color': '#d8b4fe',
+              'border-width': 4,
+              'border-color': '#ef4444',
+              'shadow-blur': 30,
+              'shadow-color': '#f87171',
+              'shadow-opacity': 0.8
             }
           },
           // ホバー・近傍強調・非近傍ディミング
@@ -253,9 +511,12 @@ export default {
               'height': 120,
               'shape': 'rectangle',
               'label': '',
-              'border-width': 2,
+              'border-width': (ele) => ele.data('isSearched') ? 4 : 2,
               'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#e5e7eb',
               'border-style': 'solid',
+              'shadow-blur': (ele) => ele.data('isSearched') ? 35 : 12,
+              'shadow-color': (ele) => ele.data('isSearched') ? '#f87171' : '#94a3b8',
+              'shadow-opacity': (ele) => ele.data('isSearched') ? 0.85 : 0.25,
               'overlay-opacity': 0
             }
           },
@@ -265,8 +526,8 @@ export default {
               'width': 80,
               'height': 120,
               'shape': 'rectangle',
-              'background-color': '#ffffff',
-              'border-width': 2,
+              'background-color': (ele) => ele.data('isSearched') ? '#ffe4e6' : '#ffffff',
+              'border-width': (ele) => ele.data('isSearched') ? 4 : 2,
               'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#e5e7eb',
               'border-style': 'solid',
               'label': 'data(label)',
@@ -277,13 +538,16 @@ export default {
               'font-weight': '700',
               'text-wrap': 'wrap',
               'text-max-width': '75px',
+              'shadow-blur': (ele) => ele.data('isSearched') ? 30 : 12,
+              'shadow-color': (ele) => ele.data('isSearched') ? '#f87171' : '#94a3b8',
+              'shadow-opacity': (ele) => ele.data('isSearched') ? 0.8 : 0.25,
               'overlay-opacity': 0
             }
           },
           {
             selector: 'node[type="author"]',
             style: {
-              'background-color': (ele) => nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown,
+              'background-color': (ele) => ele.data('isSearched') ? '#c084fc' : (nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown),
               'label': (ele) => '👤\n' + ele.data('label'),
               'width': 80,
               'height': 80,
@@ -295,15 +559,18 @@ export default {
               'font-weight': '700',
               'text-wrap': 'wrap',
               'text-max-width': '75px',
-              'border-width': 2,
+              'border-width': (ele) => ele.data('isSearched') ? 4 : 2,
               'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#ffffff',
+              'shadow-blur': (ele) => ele.data('isSearched') ? 30 : 12,
+              'shadow-color': (ele) => ele.data('isSearched') ? '#f87171' : '#94a3b8',
+              'shadow-opacity': (ele) => ele.data('isSearched') ? 0.8 : 0.25,
               'overlay-opacity': 0
             }
           },
           {
             selector: 'node[type="publisher"]',
             style: {
-              'background-color': (ele) => nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown,
+              'background-color': (ele) => ele.data('isSearched') ? '#d8b4fe' : (nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown),
               'label': (ele) => '🏢\n' + ele.data('label'),
               'width': 80,
               'height': 80,
@@ -315,15 +582,18 @@ export default {
               'font-weight': '700',
               'text-wrap': 'wrap',
               'text-max-width': '75px',
-              'border-width': 2,
+              'border-width': (ele) => ele.data('isSearched') ? 4 : 2,
               'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#ffffff',
+              'shadow-blur': (ele) => ele.data('isSearched') ? 30 : 12,
+              'shadow-color': (ele) => ele.data('isSearched') ? '#f87171' : '#94a3b8',
+              'shadow-opacity': (ele) => ele.data('isSearched') ? 0.8 : 0.25,
               'overlay-opacity': 0
             }
           },
           {
             selector: 'node[type="magazine"]',
             style: {
-              'background-color': (ele) => nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown,
+              'background-color': (ele) => ele.data('isSearched') ? '#fdba74' : (nodeTypeColors[ele.data('type')] || nodeTypeColors.unknown),
               'label': (ele) => '📖\n' + ele.data('label'),
               'width': 80,
               'height': 80,
@@ -335,8 +605,11 @@ export default {
               'font-weight': '700',
               'text-wrap': 'wrap',
               'text-max-width': '75px',
-              'border-width': 2,
+              'border-width': (ele) => ele.data('isSearched') ? 4 : 2,
               'border-color': (ele) => ele.data('isSearched') ? '#ef4444' : '#ffffff',
+              'shadow-blur': (ele) => ele.data('isSearched') ? 30 : 12,
+              'shadow-color': (ele) => ele.data('isSearched') ? '#f87171' : '#94a3b8',
+              'shadow-opacity': (ele) => ele.data('isSearched') ? 0.8 : 0.25,
               'overlay-opacity': 0
             }
           },
@@ -372,21 +645,21 @@ export default {
             }
           },
           {
-            selector: 'edge[type="created"], edge[type="authored"]',
+            selector: 'edge[type="created"], edge[type="authored"], edge[type="CREATED"], edge[type="AUTHORED"], edge[type="created_by"], edge[type="CREATED_BY"]',
             style: {
               'line-style': 'solid',
               'width': 3.5
             }
           },
           {
-            selector: 'edge[type="published"], edge[type="published_by"], edge[type="belongs_to"]',
+            selector: 'edge[type="published"], edge[type="published_by"], edge[type="belongs_to"], edge[type="serialized_in"], edge[type="PUBLISHED"], edge[type="PUBLISHED_BY"], edge[type="PUBLISHED_IN"], edge[type="BELONGS_TO"], edge[type="SERIALIZED_IN"]',
             style: {
               'line-style': 'solid',
               'width': 3.5
             }
           },
           {
-            selector: 'edge[type="same_publisher"]',
+            selector: 'edge[type="same_publisher"], edge[type="SAME_PUBLISHER"]',
             style: {
               'line-style': 'dashed',
               'line-dash-pattern': [6, 6],
@@ -395,14 +668,14 @@ export default {
             }
           },
           {
-            selector: 'edge[type="mentor_of"], edge[type="influenced_by"]',
+            selector: 'edge[type="mentor_of"], edge[type="influenced_by"], edge[type="MENTOR_OF"], edge[type="INFLUENCED_BY"]',
             style: {
               'line-style': 'solid',
               'width': 4
             }
           },
           {
-            selector: 'edge[type="collaborated_with"], edge[type="worked_with"]',
+            selector: 'edge[type="collaborated_with"], edge[type="worked_with"], edge[type="COLLABORATED_WITH"], edge[type="WORKED_WITH"]',
             style: {
               'line-style': 'dashed',
               'line-dash-pattern': [8, 6],
@@ -447,12 +720,25 @@ export default {
 
       cy.on('tap', 'node', (evt) => {
         const node = evt.target
+        const nodeProperties = node.data('properties') || {}
+        const isWorkNode = node.data('type') === 'work'
+        const genresList = isWorkNode
+          ? translateList('genres', nodeProperties.genres)
+          : []
+        const themesList = isWorkNode
+          ? translateList('themes', nodeProperties.themes)
+          : []
         selectedNode.value = {
           id: node.data('id'),
-          // 見出しにはオリジナルのラベルを使用（改行挿入によるスペース崩れを防ぐ）
-          label: node.data('originalLabel') || node.data('label'),
+          // 見出しには日本語名（displayName）を優先して使用
+          label: node.data('displayName') || node.data('originalLabel') || node.data('label'),
           type: node.data('type'),
-          properties: node.data('properties')
+          properties: nodeProperties,
+          publishingPeriod: isWorkNode
+            ? formatPublishingPeriod(nodeProperties)
+            : '',
+          genresDisplay: buildCommaSeparated(genresList),
+          themesDisplay: buildCommaSeparated(themesList)
         }
         // タッチデバイスではタップ時にホバー同等の強調を適用
         if (isTouchDevice()) {
@@ -542,19 +828,32 @@ export default {
         }
         
         // Process label based on node type
-        let displayLabel = node.label
+        // 数値や他の型の場合に文字列に変換
+        const toStr = (val) => (val == null ? '' : String(val))
         
-        // For author nodes, show only the first person name
+        let baseLabel = node.type === 'work'
+          ? toStr(node.properties?.japanese_name || node.label || node.properties?.title || '')
+          : toStr(node.label || node.properties?.title || '')
+
+        if (node.type === 'magazine') {
+          const magazineSource = toStr(node.properties?.title || node.properties?.name || node.label)
+          baseLabel = translateSingle('serialization', magazineSource) || baseLabel
+        } else if (node.type === 'publisher') {
+          const publisherSource = toStr(node.properties?.title || node.properties?.name || node.label)
+          baseLabel = translateSingle('publisher', publisherSource) || baseLabel
+        }
+        let displayLabel = baseLabel
+        
+        // For author nodes, normalize "Lastname, Firstname" style names
         if (node.type === 'author' && node.label) {
-          const authors = node.label.split(/[,、]/)
-          displayLabel = authors[0].trim()
+          displayLabel = formatAuthorDisplayLabel(toStr(node.label))
         }
         
         // For work nodes, add line breaks for better text wrapping
-        if (node.type === 'work' && node.label) {
+        if (node.type === 'work' && baseLabel && typeof baseLabel === 'string' && baseLabel.length > 0) {
           // Split long titles into multiple lines (approximately every 8-10 characters)
           const maxCharsPerLine = 8
-          const words = node.label.split('')
+          const words = baseLabel.split('')
           let lines = []
           let currentLine = ''
           
@@ -576,7 +875,8 @@ export default {
           data: {
             id: node.id,
             label: displayLabel,
-            originalLabel: node.label, // 情報パネル用に元のラベルを保持
+            displayName: baseLabel,
+            originalLabel: toStr(node.label), // 情報パネル用に元のラベルを保持
             type: node.type,
             properties: nodeProperties,
             isSearched: node.isSearched || false
@@ -715,6 +1015,7 @@ export default {
 
       const getEdgeLabel = (type) => {
         const labels = {
+          // 小文字版
           created: '創作',
           authored: '著',
           published: '掲載',
@@ -724,10 +1025,32 @@ export default {
           mentor_of: '師弟',
           influenced_by: '影響',
           collaborated_with: '共作',
-          worked_with: '共作'
+          worked_with: '共作',
+          serialized_in: '連載',
+          created_by: '制作',
+          // 大文字版（Neo4jからのレスポンス用）
+          CREATED: '創作',
+          AUTHORED: '著',
+          PUBLISHED: '掲載',
+          PUBLISHED_BY: '発行',
+          PUBLISHED_IN: '掲載',
+          SAME_PUBLISHER: '同出版社',
+          BELONGS_TO: '掲載',
+          MENTOR_OF: '師弟',
+          INFLUENCED_BY: '影響',
+          COLLABORATED_WITH: '共作',
+          WORKED_WITH: '共作',
+          SERIALIZED_IN: '連載',
+          CREATED_BY: '作者'
         }
-        return labels[type] || ''
+        // 小文字に変換して検索
+        const normalizedType = type?.toLowerCase()
+        return labels[type] || labels[normalizedType] || type || ''
       }
+
+      // エッジタイプのログ出力（デバッグ用）
+      const edgeTypes = [...new Set(props.graphData.edges.map(e => e.type))]
+      console.log('Edge types in graph data:', edgeTypes)
 
       const elements = [
         ...initialNodes,
@@ -745,8 +1068,40 @@ export default {
         })
       ]
 
+      // エッジのsource/targetが存在するノードを指しているか確認
+      const nodeIds = new Set(elements.filter(e => !e.data.source).map(e => e.data.id))
+      const edges = elements.filter(e => e.data.source)
+      const orphanEdges = edges.filter(e => !nodeIds.has(e.data.source) || !nodeIds.has(e.data.target))
+      
+      console.log('GraphVisualization: Adding elements to cytoscape:', {
+        totalElements: elements.length,
+        nodes: elements.filter(e => !e.data.source).length,
+        edges: edges.length,
+        orphanEdges: orphanEdges.length,
+        orphanEdgeDetails: orphanEdges.slice(0, 5).map(e => ({
+          id: e.data.id,
+          source: e.data.source,
+          sourceExists: nodeIds.has(e.data.source),
+          target: e.data.target,
+          targetExists: nodeIds.has(e.data.target),
+          type: e.data.type
+        })),
+        sampleEdges: edges.slice(0, 5).map(e => ({
+          id: e.data.id,
+          source: e.data.source,
+          target: e.data.target,
+          type: e.data.type
+        }))
+      })
+
       cy.elements().remove()
       cy.add(elements)
+      
+      // 追加後の状態をログ出力
+      console.log('GraphVisualization: After cy.add:', {
+        nodesInCy: cy.nodes().length,
+        edgesInCy: cy.edges().length
+      })
       
   if (elements.length > 0) {
         // レイアウト後に検索ヒットノードへフォーカス＆ハイライト
@@ -756,11 +1111,19 @@ export default {
     resolveCollisions(8, 10)
             const searched = cy.nodes().filter(n => !!n.data('isSearched'))
             if (searched && searched.length > 0) {
-      // 検索ヒット＋その近傍ノードも含めてフォーカス
-      const neighborNodes = searched.neighborhood().nodes()
-      const focusElements = searched.union(neighborNodes)
-      // 近傍も数個見えるようパディングを広めに確保
-      cy.fit(focusElements, 100)
+              // 検索ヒット数が少ない場合のみ近傍にフォーカス
+              // 多数のノードがある場合は全体を表示
+              const totalNodes = cy.nodes().length
+              if (totalNodes > 50) {
+                // 大きなグラフの場合は全体を表示
+                cy.fit(null, 50)
+              } else {
+                // 検索ヒット＋その近傍ノードも含めてフォーカス
+                const neighborNodes = searched.neighborhood().nodes()
+                const focusElements = searched.union(neighborNodes)
+                // 近傍も数個見えるようパディングを広めに確保
+                cy.fit(focusElements, 100)
+              }
               // 軽いアニメーションで注意を引く
               searched.forEach(n => {
                 const type = n.data('type')
@@ -1065,10 +1428,22 @@ export default {
   align-items: center;
 }
 
+.node-info-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .node-info-header h3 {
   margin: 0;
   color: #333;
   font-size: 1.2rem;
+}
+
+.publishing-period {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #555;
 }
 
 .close-button {
