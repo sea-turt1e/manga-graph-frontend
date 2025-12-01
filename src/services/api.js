@@ -130,84 +130,111 @@ export const searchMediaArts = async (query, limit = 30) => {
   }
 }
 
-// 関連データ込みの検索機能
-const GRAPH_SEARCH_COMBINATIONS = [
-  { lang: 'japanese', mode: 'simple' },
-  { lang: 'japanese', mode: 'fulltext' },
-  { lang: 'japanese', mode: 'ranked' },
-  { lang: 'english', mode: 'simple' },
-  { lang: 'english', mode: 'fulltext' },
-  { lang: 'english', mode: 'ranked' }
-]
-
-const hasGraphResults = (payload) => {
-  if (!payload) return false
-  const nodeCount = Array.isArray(payload.nodes) ? payload.nodes.length : 0
-  const edgeCount = Array.isArray(payload.edges) ? payload.edges.length : 0
-  return nodeCount > 0 || edgeCount > 0
+// 関連データ込みの検索機能（新統合API使用 - Step 1-6 統合）
+export const searchMediaArtsWithRelated = async (query, limit = 50, includeHentai = false) => {
+  const sanitizedLimit = Math.min(100, Math.max(1, Number(limit) || 50))
+  try {
+    // 新統合API: カスケード検索（6回のAPIコールを1回に統合）
+    const result = await searchGraphCascade(query, sanitizedLimit, 'japanese,english', includeHentai)
+    return {
+      ...result,
+      nodes: result.nodes || [],
+      edges: result.edges || [],
+      meta: {
+        ...(result.meta || {}),
+        appliedApi: 'cascade'
+      }
+    }
+  } catch (error) {
+    console.error('Manga graph cascade search API error:', error)
+    throw error
+  }
 }
 
-export const searchMediaArtsWithRelated = async (query, limit = 50) => {
-  const sanitizedLimit = Math.min(100, Math.max(1, Number(limit) || 50))
-  let lastEmptyResponse = null
-  let lastError = null
-  let lastAttemptCombo = null
-
-  for (const combo of GRAPH_SEARCH_COMBINATIONS) {
-    try {
-      const response = await apiV1.get('/manga-anime-neo4j/graph', {
-        params: {
-          q: query,
-          limit: sanitizedLimit,
-          lang: combo.lang,
-          mode: combo.mode
-        }
-      })
-
-      const payload = response.data
-      lastAttemptCombo = combo
-      if (hasGraphResults(payload)) {
-        return {
-          ...payload,
-          meta: {
-            ...(payload?.meta || {}),
-            appliedLang: combo.lang,
-            appliedMode: combo.mode
-          }
-        }
+// ============================================
+// 新統合API: グラフ検索のカスケード（Step 1-6 統合）
+// ============================================
+export const searchGraphCascade = async (query, limit = 3, languages = 'japanese,english', includeHentai = false) => {
+  const sanitizedLimit = Math.min(100, Math.max(1, Number(limit) || 3))
+  try {
+    const response = await apiV1.get('/manga-anime-neo4j/graph/cascade', {
+      params: {
+        q: query,
+        limit: sanitizedLimit,
+        languages,
+        include_hentai: includeHentai
       }
-      lastEmptyResponse = payload
-    } catch (error) {
-      lastError = error
-      console.warn(`Graph search failed for lang=${combo.lang}, mode=${combo.mode}`, error)
-    }
-  }
-
-  if (lastEmptyResponse) {
+    })
     return {
-      ...lastEmptyResponse,
-      nodes: lastEmptyResponse.nodes || [],
-      edges: lastEmptyResponse.edges || [],
+      ...response.data,
       meta: {
-        ...(lastEmptyResponse.meta || {}),
-        appliedLang: lastAttemptCombo?.lang ?? lastEmptyResponse.meta?.appliedLang ?? null,
-        appliedMode: lastAttemptCombo?.mode ?? lastEmptyResponse.meta?.appliedMode ?? null
+        ...(response.data?.meta || {}),
+        appliedApi: 'cascade'
       }
     }
+  } catch (error) {
+    console.error('Graph cascade search API error:', error)
+    throw error
   }
+}
 
-  if (lastError) {
-    console.error('Manga graph search API error:', lastError)
-    throw lastError
+// ============================================
+// 新統合API: 類似検索の統合（Step 7-8 統合）
+// ============================================
+export const searchVectorSimilarityMulti = async (
+  query,
+  embeddingTypes = ['title_en', 'title_ja'],
+  limit = 10,
+  threshold = 0.3,
+  includeHentai = false,
+  embeddingDims = 256
+) => {
+  try {
+    const response = await apiV1.post('/manga-anime-neo4j/vector/similarity/multi', {
+      query,
+      embedding_types: embeddingTypes,
+      embedding_dims: embeddingDims,
+      limit,
+      threshold,
+      include_hentai: includeHentai
+    })
+    return response.data
+  } catch (error) {
+    console.error('Vector similarity multi API error:', error)
+    throw error
   }
+}
 
-  return {
-    nodes: [],
-    edges: [],
-    meta: {
-      appliedLang: null,
-      appliedMode: null
-    }
+// ============================================
+// 新統合API: 関連グラフの一括取得（Step 11-13 統合）
+// ============================================
+export const getRelatedGraphsBatch = async ({
+  authorNodeId = null,
+  magazineNodeId = null,
+  publisherNodeId = null,
+  authorLimit = 5,
+  magazineLimit = 5,
+  publisherLimit = 3,
+  referenceWorkId = null,
+  excludeMagazineId = null,
+  includeHentai = false
+} = {}) => {
+  try {
+    const response = await apiV1.post('/manga-anime-neo4j/related-graphs/batch', {
+      author_node_id: authorNodeId,
+      magazine_node_id: magazineNodeId,
+      publisher_node_id: publisherNodeId,
+      author_limit: authorLimit,
+      magazine_limit: magazineLimit,
+      publisher_limit: publisherLimit,
+      reference_work_id: referenceWorkId,
+      exclude_magazine_id: excludeMagazineId,
+      include_hentai: includeHentai
+    })
+    return response.data
+  } catch (error) {
+    console.error('Related graphs batch API error:', error)
+    throw error
   }
 }
 
@@ -269,54 +296,32 @@ export const searchVectorSimilarity = async (
   }
 }
 
-// タイトル曖昧検索（英語・日本語両方で検索して結果をマージ）
+// タイトル曖昧検索（新統合API使用 - Step 7-8 統合）
 export const searchTitleCandidates = async (
   query,
-  limit = 5,
-  threshold = 0.5,
+  limit = 10,
+  threshold = 0.3,
   includeHentai = false
 ) => {
   try {
-    // 英語タイトルと日本語タイトルの両方で検索
-    const [enResults, jaResults] = await Promise.all([
-      searchVectorSimilarity(query, 'title_en', limit, threshold, includeHentai),
-      searchVectorSimilarity(query, 'title_ja', limit, threshold, includeHentai)
-    ])
+    // 新統合API: 英語タイトルと日本語タイトルの両方を一回のAPIコールで検索
+    const result = await searchVectorSimilarityMulti(
+      query,
+      ['title_en', 'title_ja'],
+      limit,
+      threshold,
+      includeHentai
+    )
 
-    // 結果をマージして重複を除去し、similarityでソート
-    const candidateMap = new Map()
-
-    const processResults = (results, embeddingType) => {
-      if (!results || !Array.isArray(results.results)) return
-      results.results.forEach((item) => {
-        const key = item.mal_id || item.title_en || item.title_ja
-        if (!key) return
-        
-        // similarity または score フィールドを使用（APIレスポンスの形式に対応）
-        const similarityValue = typeof item.similarity_score === 'number' ? item.similarity_score 
-          : 0
-        
-        const existing = candidateMap.get(key)
-        if (!existing || similarityValue > existing.similarity) {
-          candidateMap.set(key, {
-            ...item,
-            similarity: similarityValue,
-            embeddingType
-          })
-        }
-      })
-    }
-
-    processResults(enResults, 'title_en')
-    processResults(jaResults, 'title_ja')
-
-    // similarityでソートして返す
-    const sortedCandidates = Array.from(candidateMap.values())
-      .sort((a, b) => b.similarity - a.similarity)
+    // APIが既にマージ・重複排除・ソート済みの結果を返す
+    const candidates = (result?.results || []).map(item => ({
+      ...item,
+      similarity: item.similarity_score || 0
+    }))
 
     return {
-      candidates: sortedCandidates,
-      totalCount: sortedCandidates.length
+      candidates,
+      totalCount: candidates.length
     }
   } catch (error) {
     console.error('Title candidates search error:', error)
