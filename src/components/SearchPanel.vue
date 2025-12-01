@@ -39,6 +39,16 @@
             ※入力した漫画名に対してヒットした件数の上限を設定します。
           </label>
 
+          <!-- 曖昧検索は一時的に無効化
+          <div class="fuzzy-search-option">
+            <label class="option-checkbox fuzzy-checkbox">
+              <input type="checkbox" v-model="useFuzzySearch" />
+              ニュアンスで探す
+            </label>
+            <p class="fuzzy-note">※キーワードが少し違っていても、意味が近いものを探します。ただし時間がかかる可能性が高いです。</p>
+          </div>
+          -->
+
           <!-- <div class="expansion-options">
             <p class="expansion-title">関連データの追加表示</p>
             <label class="option-checkbox">
@@ -91,6 +101,7 @@ export default {
     const searchQuery = ref('')
     const searchLimit = ref(3)
     const isComposing = ref(false)
+    const useFuzzySearch = ref(false)
     const defaultExpansions = {
       includeAuthorWorks: true,
       includeMagazineWorks: true,
@@ -105,7 +116,8 @@ export default {
         emit('search', {
           query: searchQuery.value.trim(),
           limit: limitValue,
-          expansions: { ...expansions }
+          expansions: { ...expansions },
+          useFuzzySearch: useFuzzySearch.value
         })
       }
     }
@@ -128,6 +140,7 @@ export default {
 
     const handleClear = () => {
       searchQuery.value = ''
+      useFuzzySearch.value = false
       Object.assign(expansions, defaultExpansions)
       emit('clear')
     }
@@ -136,6 +149,7 @@ export default {
       searchQuery,
       searchLimit,
       isComposing,
+      useFuzzySearch,
       expansions,
       handleSearch,
       handleKeyDown,
@@ -308,6 +322,33 @@ export default {
 
 .clear-button:hover {
   background: #e0e0e0;
+}
+
+.fuzzy-search-option {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.fuzzy-checkbox {
+  margin-top: 0;
+  font-weight: 600;
+  color: #495057;
+}
+
+.fuzzy-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.fuzzy-note {
+  margin: 8px 0 0 0;
+  font-size: 0.8rem;
+  color: #868e96;
+  line-height: 1.4;
 }
 
 .search-tips {

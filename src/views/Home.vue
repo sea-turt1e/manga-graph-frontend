@@ -12,7 +12,7 @@
           :loading="loading"
         />
         
-        <!-- 候補選択ポップアップ -->
+        <!-- 曖昧検索の候補選択ポップアップ（一時的に無効化）
         <transition name="popup-fade">
           <div v-if="showCandidatesPopup" class="candidates-popup-overlay" @click.self="closeCandidatesPopup">
             <div class="candidates-popup">
@@ -48,6 +48,7 @@
             </div>
           </div>
         </transition>
+        -->
       </div>
     </main>
     <!-- Toast -->
@@ -65,13 +66,9 @@ import GraphVisualization from '../components/GraphVisualization.vue'
 import Header from '../components/Header.vue'
 import SearchPanel from '../components/SearchPanel.vue'
 import {
-  getAuthorRelatedWorks,
-  getMagazineRelatedWorks,
   getMagazineWorkGraph,
-  getPublisherMagazines,
-  searchGraphSimple,
-  searchMediaArtsWithRelated,
-  searchTitleCandidates
+  getRelatedGraphsBatch,
+  searchMediaArtsWithRelated
 } from '../services/api'
 
 const DEFAULT_EXPANSION_OPTIONS = {
@@ -81,10 +78,7 @@ const DEFAULT_EXPANSION_OPTIONS = {
   includePublisherMagazineWorks: true
 }
 
-const SUBGRAPH_BATCH_SIZE = 4
-const PUBLISHER_MAGAZINE_LIMIT = 3
 const DEFAULT_MAGAZINE_WORK_LIMIT = 3
-const MAX_MAGAZINE_WORK_LIMIT = 500
 
 export default {
   name: 'Home',
@@ -102,12 +96,13 @@ export default {
     const lastSearchMeta = ref({ lang: null, mode: null })
     const toast = reactive({ visible: false, message: '', type: 'info', timer: null })
     
-    // 候補選択ポップアップ用の状態
+    /* 曖昧検索の候補選択ポップアップ用の状態（一時的に無効化）
     const showCandidatesPopup = ref(false)
     const loadingCandidates = ref(false)
     const candidates = ref([])
     const candidatesQuery = ref('')
     const lastSearchParams = ref(null)
+    */
 
     const showToast = (message, type = 'info', duration = 3000) => {
       toast.message = message
@@ -123,22 +118,6 @@ export default {
         return '-'
       }
       return `${(value * 100).toFixed(1)}%`
-    }
-
-    const resolveNodeId = (node = {}) => {
-      if (!node || typeof node !== 'object') return null
-      return (
-        node.id ??
-        node.neo4j_id ??
-        node.neo4jId ??
-        node?.properties?.neo4j_id ??
-        node?.properties?.id ??
-        node?.properties?.work_id ??
-        node?.properties?.magazine_id ??
-        node?.properties?.publisher_id ??
-        node?.properties?.node_id ??
-        null
-      )
     }
 
     const resolveElementId = (node = {}) => {
@@ -252,15 +231,6 @@ export default {
       }
     }
 
-    const collectIdsByType = (nodes = [], type) => {
-      return Array.from(new Set(
-        nodes
-          .filter((node) => node.type === type)
-          .map((node) => resolveNodeId(node))
-          .filter(Boolean)
-      ))
-    }
-
     // 検索でヒットしたworkノードのelement_idを取得（reference_work_id用）
     const getSearchedWorkElementId = (nodes = []) => {
       const searchedWork = nodes.find(
@@ -269,34 +239,6 @@ export default {
       if (!searchedWork) return null
       // element_id形式（"4:xxx:123"）を返す
       return resolveElementId(searchedWork)
-    }
-
-    const fetchSegmentsInBatches = async (ids, fetcher, batchSize = SUBGRAPH_BATCH_SIZE, onSuccess) => {
-      const segments = []
-      const failedIds = []
-
-      for (let i = 0; i < ids.length; i += batchSize) {
-        const batch = ids.slice(i, i + batchSize)
-        const settled = await Promise.allSettled(batch.map((id) => fetcher(id)))
-        settled.forEach((result, index) => {
-          const currentId = batch[index]
-          if (result.status === 'fulfilled' && result.value) {
-            const payload = result.value
-            segments.push({
-              nodes: payload.nodes || [],
-              edges: payload.edges || []
-            })
-            if (typeof onSuccess === 'function') {
-              onSuccess(currentId, payload)
-            }
-          } else {
-            failedIds.push(currentId)
-            console.warn('追加データ取得に失敗しました:', currentId, result.reason)
-          }
-        })
-      }
-
-      return { segments, failedIds }
     }
 
     const collectMagazineElementIds = (baseNodes = [], segments = [], publisherCache = new Map()) => {
@@ -338,9 +280,11 @@ export default {
 
         const hasData = (result?.nodes?.length || 0) > 0 || (result?.edges?.length || 0) > 0
 
-        // 検索結果が空の場合、曖昧検索で候補を取得
+        // 検索結果が空の場合
         if (!hasData) {
-          await fetchAndShowCandidates(originalQuery, searchParams)
+          showToast('検索結果が見つかりませんでした。別のキーワードをお試しください。', 'warn', 5000)
+          graphData.nodes = []
+          graphData.edges = []
           loading.value = false
           return
         }
@@ -366,45 +310,65 @@ export default {
 
         const expansionSegments = []
         const failedMessages = []
-        const publisherMagazinesCache = new Map()
 
-        if (expansionOptions.includeAuthorWorks) {
-          const authorIds = collectIdsByType(nodes, 'author')
-          if (authorIds.length) {
-            const { segments, failedIds } = await fetchSegmentsInBatches(authorIds, (id) => getAuthorRelatedWorks(id, 5))
-            expansionSegments.push(...segments)
-            if (failedIds.length) failedMessages.push(`作者(${failedIds.length})`)
-          }
-        }
+        // ============================================
+        // 新統合API: 関連グラフを一括取得（Step 11-13 統合）
+        // ============================================
+        const needsRelatedGraphs = expansionOptions.includeAuthorWorks || 
+                                   expansionOptions.includeMagazineWorks || 
+                                   expansionOptions.includePublisherMagazines
 
-        if (expansionOptions.includeMagazineWorks) {
-          const magazineIds = collectIdsByType(nodes, 'magazine')
-          if (magazineIds.length) {
-            const { segments, failedIds } = await fetchSegmentsInBatches(magazineIds, (id) => getMagazineRelatedWorks(id))
-            expansionSegments.push(...segments)
-            if (failedIds.length) failedMessages.push(`雑誌(${failedIds.length})`)
-          }
-        }
+        if (needsRelatedGraphs) {
+          // グラフからノードIDを抽出
+          const authorNode = nodes.find(n => n.type === 'author')
+          const magazineNode = nodes.find(n => n.type === 'magazine')
+          const publisherNode = nodes.find(n => n.type === 'publisher')
+          
+          const authorNodeId = expansionOptions.includeAuthorWorks ? resolveElementId(authorNode) : null
+          const magazineNodeId = expansionOptions.includeMagazineWorks ? resolveElementId(magazineNode) : null
+          const publisherNodeId = expansionOptions.includePublisherMagazines ? resolveElementId(publisherNode) : null
 
-        if (expansionOptions.includePublisherMagazines) {
-          const publisherIds = collectIdsByType(nodes, 'publisher')
-          if (publisherIds.length) {
-            const { segments, failedIds } = await fetchSegmentsInBatches(
-              publisherIds,
-              (id) => getPublisherMagazines(id, PUBLISHER_MAGAZINE_LIMIT),
-              SUBGRAPH_BATCH_SIZE,
-              (id, payload) => publisherMagazinesCache.set(id, payload)
-            )
-            expansionSegments.push(...segments)
-            if (failedIds.length) {
-              failedMessages.push(`出版社雑誌(${failedIds.length})`)
+          if (authorNodeId || magazineNodeId || publisherNodeId) {
+            try {
+              const relatedGraphs = await getRelatedGraphsBatch({
+                authorNodeId,
+                magazineNodeId,
+                publisherNodeId,
+                authorLimit: 5,
+                magazineLimit: 5,
+                publisherLimit: 3,
+                includeHentai: false
+              })
+
+              // 各グラフをexpansionSegmentsに追加
+              if (relatedGraphs.author_graph) {
+                expansionSegments.push({
+                  nodes: relatedGraphs.author_graph.nodes || [],
+                  edges: relatedGraphs.author_graph.edges || []
+                })
+              }
+              if (relatedGraphs.magazine_graph) {
+                expansionSegments.push({
+                  nodes: relatedGraphs.magazine_graph.nodes || [],
+                  edges: relatedGraphs.magazine_graph.edges || []
+                })
+              }
+              if (relatedGraphs.publisher_graph) {
+                expansionSegments.push({
+                  nodes: relatedGraphs.publisher_graph.nodes || [],
+                  edges: relatedGraphs.publisher_graph.edges || []
+                })
+              }
+            } catch (error) {
+              console.error('関連グラフの一括取得に失敗しました:', error)
+              failedMessages.push('関連グラフ')
             }
           }
         }
 
-        // 出版社の他雑誌掲載作品: 出版社ノードの有無に関わらず、収集済みの雑誌から作品グラフを取得
+        // 出版社の他雑誌掲載作品: 収集済みの雑誌から作品グラフを取得
         if (expansionOptions.includePublisherMagazineWorks) {
-          const magazineElementIds = collectMagazineElementIds(nodes, expansionSegments, publisherMagazinesCache)
+          const magazineElementIds = collectMagazineElementIds(nodes, expansionSegments, new Map())
           const referenceWorkId = getSearchedWorkElementId(nodes)
           console.log('Magazine element IDs collected:', magazineElementIds, 'Reference work ID:', referenceWorkId)
           if (magazineElementIds.length) {
@@ -479,6 +443,7 @@ export default {
       }
     }
 
+    /* 曖昧検索関連の関数（一時的に無効化）
     // 曖昧検索で候補を取得して表示
     const fetchAndShowCandidates = async (query, searchParams) => {
       candidatesQuery.value = query
@@ -505,15 +470,15 @@ export default {
     
     // 候補選択ポップアップを閉じる
     const closeCandidatesPopup = () => {
-      showCandidatesPopup.value = false
-      loadingCandidates.value = false
-      candidates.value = []
-      candidatesQuery.value = ''
-      lastSearchParams.value = null
+      // 一時的に無効化
     }
 
-    // 候補を選択して再検索
+    // 候補を選択して再検索（一時的に無効化）
     const selectCandidate = async (candidate) => {
+      // 一時的に無効化
+    }
+    曖昧検索の候補選択関連の処理（一時的に無効化）
+    const selectCandidateOriginal = async (candidate) => {
       // closeCandidatesPopupを呼ぶ前にsearchParamsを保存
       const searchParams = lastSearchParams.value || {}
       const limit = Math.min(100, Math.max(1, Number(searchParams?.limit) || 50))
@@ -536,12 +501,13 @@ export default {
       lastSearchMeta.value = { lang: null, mode: null }
       
       try {
-        // 選択した候補のタイトルでmode=simple, lang=englishで検索
-        const result = await searchGraphSimple(query, limit)
+        // 選択した候補のタイトルでカスケード検索（統合API）
+        const result = await searchGraphCascade(query, limit)
 
         lastSearchMeta.value = {
-          lang: result?.meta?.appliedLang ?? 'english',
-          mode: result?.meta?.appliedMode ?? 'simple'
+          lang: result?.meta?.appliedLang ?? null,
+          mode: result?.meta?.appliedMode ?? null,
+          appliedApi: 'cascade'
         }
 
         const hasData = (result?.nodes?.length || 0) > 0 || (result?.edges?.length || 0) > 0
@@ -581,47 +547,67 @@ export default {
         graphData.nodes = nodes
         graphData.edges = result.edges || []
 
-        // 関連データの取得（handleSearchと同じ処理）
+        // ============================================
+        // 新統合API: 関連グラフを一括取得（handleSearchと同様）
+        // ============================================
         const expansionSegments = []
         const failedMessages = []
-        const publisherMagazinesCache = new Map()
 
-        if (expansionOptions.includeAuthorWorks) {
-          const authorIds = collectIdsByType(nodes, 'author')
-          if (authorIds.length) {
-            const { segments, failedIds } = await fetchSegmentsInBatches(authorIds, (id) => getAuthorRelatedWorks(id, 5))
-            expansionSegments.push(...segments)
-            if (failedIds.length) failedMessages.push(`作者(${failedIds.length})`)
-          }
-        }
+        const needsRelatedGraphs = expansionOptions.includeAuthorWorks || 
+                                   expansionOptions.includeMagazineWorks || 
+                                   expansionOptions.includePublisherMagazines
 
-        if (expansionOptions.includeMagazineWorks) {
-          const magazineIds = collectIdsByType(nodes, 'magazine')
-          if (magazineIds.length) {
-            const { segments, failedIds } = await fetchSegmentsInBatches(magazineIds, (id) => getMagazineRelatedWorks(id))
-            expansionSegments.push(...segments)
-            if (failedIds.length) failedMessages.push(`雑誌(${failedIds.length})`)
-          }
-        }
+        if (needsRelatedGraphs) {
+          // グラフからノードIDを抽出
+          const authorNode = nodes.find(n => n.type === 'author')
+          const magazineNode = nodes.find(n => n.type === 'magazine')
+          const publisherNode = nodes.find(n => n.type === 'publisher')
+          
+          const authorNodeId = expansionOptions.includeAuthorWorks ? resolveElementId(authorNode) : null
+          const magazineNodeId = expansionOptions.includeMagazineWorks ? resolveElementId(magazineNode) : null
+          const publisherNodeId = expansionOptions.includePublisherMagazines ? resolveElementId(publisherNode) : null
 
-        if (expansionOptions.includePublisherMagazines) {
-          const publisherIds = collectIdsByType(nodes, 'publisher')
-          if (publisherIds.length) {
-            const { segments, failedIds } = await fetchSegmentsInBatches(
-              publisherIds,
-              (id) => getPublisherMagazines(id, PUBLISHER_MAGAZINE_LIMIT),
-              SUBGRAPH_BATCH_SIZE,
-              (id, payload) => publisherMagazinesCache.set(id, payload)
-            )
-            expansionSegments.push(...segments)
-            if (failedIds.length) {
-              failedMessages.push(`出版社雑誌(${failedIds.length})`)
+          if (authorNodeId || magazineNodeId || publisherNodeId) {
+            try {
+              const relatedGraphs = await getRelatedGraphsBatch({
+                authorNodeId,
+                magazineNodeId,
+                publisherNodeId,
+                authorLimit: 5,
+                magazineLimit: 5,
+                publisherLimit: 3,
+                includeHentai: false
+              })
+
+              // 各グラフをexpansionSegmentsに追加
+              if (relatedGraphs.author_graph) {
+                expansionSegments.push({
+                  nodes: relatedGraphs.author_graph.nodes || [],
+                  edges: relatedGraphs.author_graph.edges || []
+                })
+              }
+              if (relatedGraphs.magazine_graph) {
+                expansionSegments.push({
+                  nodes: relatedGraphs.magazine_graph.nodes || [],
+                  edges: relatedGraphs.magazine_graph.edges || []
+                })
+              }
+              if (relatedGraphs.publisher_graph) {
+                expansionSegments.push({
+                  nodes: relatedGraphs.publisher_graph.nodes || [],
+                  edges: relatedGraphs.publisher_graph.edges || []
+                })
+              }
+            } catch (error) {
+              console.error('関連グラフの一括取得に失敗しました:', error)
+              failedMessages.push('関連グラフ')
             }
           }
         }
 
+        // 出版社の他雑誌掲載作品
         if (expansionOptions.includePublisherMagazineWorks) {
-          const magazineElementIds = collectMagazineElementIds(nodes, expansionSegments, publisherMagazinesCache)
+          const magazineElementIds = collectMagazineElementIds(nodes, expansionSegments, new Map())
           const referenceWorkId = getSearchedWorkElementId(nodes)
           console.log('Magazine element IDs collected:', magazineElementIds, 'Reference work ID:', referenceWorkId)
           if (magazineElementIds.length) {
@@ -667,12 +653,12 @@ export default {
         loading.value = false
       }
     }
+    */
 
     const handleClear = () => {
       graphData.nodes = []
       graphData.edges = []
       lastSearchMeta.value = { lang: null, mode: null }
-      closeCandidatesPopup()
     }
 
     return {
@@ -680,15 +666,8 @@ export default {
       loading,
       lastSearchMeta,
       toast,
-      showCandidatesPopup,
-      loadingCandidates,
-      candidates,
-      candidatesQuery,
       handleSearch,
       handleClear,
-      selectCandidate,
-      closeCandidatesPopup,
-      formatSimilarity,
       showToast
     }
   }
