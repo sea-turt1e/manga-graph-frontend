@@ -39,15 +39,13 @@
             ※入力した漫画名に対してヒットした件数の上限を設定します。
           </label>
 
-          <!-- 曖昧検索は一時的に無効化
           <div class="fuzzy-search-option">
             <label class="option-checkbox fuzzy-checkbox">
               <input type="checkbox" v-model="useFuzzySearch" />
               ニュアンスで探す
             </label>
-            <p class="fuzzy-note">※キーワードが少し違っていても、意味が近いものを探します。ただし時間がかかる可能性が高いです。</p>
+            <p class="fuzzy-note">※キーワードが少し違っていても、意味が近いものを探します。チェックを外すと完全一致検索になります。</p>
           </div>
-          -->
 
           <!-- <div class="expansion-options">
             <p class="expansion-title">関連データの追加表示</p>
@@ -101,7 +99,7 @@ export default {
     const searchQuery = ref('')
     const searchLimit = ref(3)
     const isComposing = ref(false)
-    const useFuzzySearch = ref(false)
+    const useFuzzySearch = ref(true)  // デフォルトでニュアンス検索を有効
     const defaultExpansions = {
       includeAuthorWorks: true,
       includeMagazineWorks: true,

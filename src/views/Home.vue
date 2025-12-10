@@ -12,7 +12,7 @@
           :loading="loading"
         />
         
-        <!-- 曖昧検索の候補選択ポップアップ（一時的に無効化）
+        <!-- 曖昧検索の候補選択ポップアップ -->
         <transition name="popup-fade">
           <div v-if="showCandidatesPopup" class="candidates-popup-overlay" @click.self="closeCandidatesPopup">
             <div class="candidates-popup">
@@ -48,7 +48,6 @@
             </div>
           </div>
         </transition>
-        -->
       </div>
     </main>
     <!-- Toast -->
@@ -66,9 +65,11 @@ import GraphVisualization from '../components/GraphVisualization.vue'
 import Header from '../components/Header.vue'
 import SearchPanel from '../components/SearchPanel.vue'
 import {
-  getMagazineWorkGraph,
-  getRelatedGraphsBatch,
-  searchMediaArtsWithRelated
+    getMagazineWorkGraph,
+    getRelatedGraphsBatch,
+    searchGraphCascade,
+    searchMediaArtsWithRelated,
+    searchTitleCandidates
 } from '../services/api'
 
 const DEFAULT_EXPANSION_OPTIONS = {
@@ -96,13 +97,12 @@ export default {
     const lastSearchMeta = ref({ lang: null, mode: null })
     const toast = reactive({ visible: false, message: '', type: 'info', timer: null })
     
-    /* 曖昧検索の候補選択ポップアップ用の状態（一時的に無効化）
+    // 曖昧検索の候補選択ポップアップ用の状態
     const showCandidatesPopup = ref(false)
     const loadingCandidates = ref(false)
     const candidates = ref([])
     const candidatesQuery = ref('')
     const lastSearchParams = ref(null)
-    */
 
     const showToast = (message, type = 'info', duration = 3000) => {
       toast.message = message
@@ -280,11 +280,15 @@ export default {
 
         const hasData = (result?.nodes?.length || 0) > 0 || (result?.edges?.length || 0) > 0
 
-        // 検索結果が空の場合
+        // 検索結果が空の場合、曖昧検索オプションが有効なら候補を取得
         if (!hasData) {
-          showToast('検索結果が見つかりませんでした。別のキーワードをお試しください。', 'warn', 5000)
-          graphData.nodes = []
-          graphData.edges = []
+          if (searchParams.useFuzzySearch) {
+            await fetchAndShowCandidates(originalQuery, searchParams)
+          } else {
+            showToast('検索結果が見つかりませんでした。「ニュアンスで探す」を有効にすると、似た作品を探せます。', 'warn', 5000)
+            graphData.nodes = []
+            graphData.edges = []
+          }
           loading.value = false
           return
         }
@@ -443,7 +447,6 @@ export default {
       }
     }
 
-    /* 曖昧検索関連の関数（一時的に無効化）
     // 曖昧検索で候補を取得して表示
     const fetchAndShowCandidates = async (query, searchParams) => {
       candidatesQuery.value = query
@@ -470,15 +473,15 @@ export default {
     
     // 候補選択ポップアップを閉じる
     const closeCandidatesPopup = () => {
-      // 一時的に無効化
+      showCandidatesPopup.value = false
+      loadingCandidates.value = false
+      candidates.value = []
+      candidatesQuery.value = ''
+      lastSearchParams.value = null
     }
 
-    // 候補を選択して再検索（一時的に無効化）
+    // 候補を選択して再検索
     const selectCandidate = async (candidate) => {
-      // 一時的に無効化
-    }
-    曖昧検索の候補選択関連の処理（一時的に無効化）
-    const selectCandidateOriginal = async (candidate) => {
       // closeCandidatesPopupを呼ぶ前にsearchParamsを保存
       const searchParams = lastSearchParams.value || {}
       const limit = Math.min(100, Math.max(1, Number(searchParams?.limit) || 50))
@@ -547,9 +550,7 @@ export default {
         graphData.nodes = nodes
         graphData.edges = result.edges || []
 
-        // ============================================
-        // 新統合API: 関連グラフを一括取得（handleSearchと同様）
-        // ============================================
+        // 関連グラフを一括取得
         const expansionSegments = []
         const failedMessages = []
 
@@ -558,7 +559,6 @@ export default {
                                    expansionOptions.includePublisherMagazines
 
         if (needsRelatedGraphs) {
-          // グラフからノードIDを抽出
           const authorNode = nodes.find(n => n.type === 'author')
           const magazineNode = nodes.find(n => n.type === 'magazine')
           const publisherNode = nodes.find(n => n.type === 'publisher')
@@ -579,7 +579,6 @@ export default {
                 includeHentai: false
               })
 
-              // 各グラフをexpansionSegmentsに追加
               if (relatedGraphs.author_graph) {
                 expansionSegments.push({
                   nodes: relatedGraphs.author_graph.nodes || [],
@@ -609,7 +608,6 @@ export default {
         if (expansionOptions.includePublisherMagazineWorks) {
           const magazineElementIds = collectMagazineElementIds(nodes, expansionSegments, new Map())
           const referenceWorkId = getSearchedWorkElementId(nodes)
-          console.log('Magazine element IDs collected:', magazineElementIds, 'Reference work ID:', referenceWorkId)
           if (magazineElementIds.length) {
             try {
               const workGraph = await getMagazineWorkGraph(
@@ -653,12 +651,12 @@ export default {
         loading.value = false
       }
     }
-    */
 
     const handleClear = () => {
       graphData.nodes = []
       graphData.edges = []
       lastSearchMeta.value = { lang: null, mode: null }
+      closeCandidatesPopup()
     }
 
     return {
@@ -666,8 +664,15 @@ export default {
       loading,
       lastSearchMeta,
       toast,
+      showCandidatesPopup,
+      loadingCandidates,
+      candidates,
+      candidatesQuery,
       handleSearch,
       handleClear,
+      selectCandidate,
+      closeCandidatesPopup,
+      formatSimilarity,
       showToast
     }
   }
