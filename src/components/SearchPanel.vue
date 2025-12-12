@@ -27,7 +27,7 @@
         
         <div class="search-options">
           <label class="option-label">
-            入力漫画名の取得上限:
+            候補をいくつ出しますか？
             <input 
               v-model.number="searchLimit" 
               type="number" 
@@ -35,16 +35,15 @@
               max="30" 
               class="limit-input"
             />
-            （1〜30）
-            ※入力した漫画名に対してヒットした件数の上限を設定します。
           </label>
+          <p class="option-note">※検索結果として表示する漫画の数を調整できます。</p>
 
           <div class="fuzzy-search-option">
             <label class="option-checkbox fuzzy-checkbox">
               <input type="checkbox" v-model="useFuzzySearch" />
-              ニュアンスで探す
+              うろ覚えでも探す
             </label>
-            <p class="fuzzy-note">※キーワードが少し違っていても、意味が近いものを探します。チェックを外すと完全一致検索になります。</p>
+            <p class="fuzzy-note">※タイトルが正確でなくても、似ている漫画を探します。（チェックを外すと、入力通りに検索します）</p>
           </div>
 
           <!-- <div class="expansion-options">
@@ -344,6 +343,13 @@ export default {
 
 .fuzzy-note {
   margin: 8px 0 0 0;
+  font-size: 0.8rem;
+  color: #868e96;
+  line-height: 1.4;
+}
+
+.option-note {
+  margin: 4px 0 12px 0;
   font-size: 0.8rem;
   color: #868e96;
   line-height: 1.4;

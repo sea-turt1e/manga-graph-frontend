@@ -4,13 +4,9 @@
       <div class="header-top">
         <h1 class="title">
           <span class="icon">📚</span>
-          Manga Graph
+          マンガつながりマップ
         </h1>
-        <nav class="navigation">
-          <router-link to="/" class="nav-link">ホーム</router-link>
-          <router-link to="/links" class="nav-link">関連リンク</router-link>
-          <router-link to="/sources" class="nav-link" aria-label="出典ページへ">出典</router-link>
-        </nav>
+        <h2 class="subtitle">〜マンガの作品や作者、雑誌、出版社のつながりを可視化〜</h2>
       </div>
     </div>
   </header>
@@ -42,11 +38,12 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .title {
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: bold;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
@@ -56,45 +53,22 @@ export default {
   align-items: center;
   gap: 12px;
   margin: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .icon {
   font-size: 2rem;
 }
 
-.navigation {
-  display: flex;
-  gap: 2rem;
-}
-
-.nav-link {
-  color: #667eea;
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 1.1rem;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  transition: all 0.3s ease;
-  border: 2px solid transparent;
-}
-
-.nav-link:hover {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-}
-
-.nav-link.router-link-active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
 .subtitle {
   color: #666;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 300;
+  margin: 0;
+  flex: 1;
+  text-align: center;
+  min-width: 200px;
 }
 
 @media (max-width: 768px) {
@@ -110,26 +84,12 @@ export default {
     gap: 8px;
   }
   
-  .navigation {
-    gap: 1rem;
-  }
-  
-  .nav-link {
-    font-size: 1rem;
-    padding: 0.4rem 0.8rem;
-  }
-  
   .subtitle {
     font-size: 1rem;
   }
 }
 
 @media (max-width: 480px) {
-  .navigation {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
   .title {
     font-size: 1.5rem;
   }

@@ -56,20 +56,22 @@
         {{ toast.message }}
       </div>
     </transition>
+    <Footer />
   </div>
 </template>
 
 <script>
 import { reactive, ref } from 'vue'
+import Footer from '../components/Footer.vue'
 import GraphVisualization from '../components/GraphVisualization.vue'
 import Header from '../components/Header.vue'
 import SearchPanel from '../components/SearchPanel.vue'
 import {
-    getMagazineWorkGraph,
-    getRelatedGraphsBatch,
-    searchGraphCascade,
-    searchMediaArtsWithRelated,
-    searchTitleCandidates
+  getMagazineWorkGraph,
+  getRelatedGraphsBatch,
+  searchGraphCascade,
+  searchMediaArtsWithRelated,
+  searchTitleCandidates
 } from '../services/api'
 
 const DEFAULT_EXPANSION_OPTIONS = {
@@ -84,6 +86,7 @@ const DEFAULT_MAGAZINE_WORK_LIMIT = 3
 export default {
   name: 'Home',
   components: {
+    Footer,
     Header,
     SearchPanel,
     GraphVisualization
@@ -484,8 +487,9 @@ export default {
     const selectCandidate = async (candidate) => {
       // closeCandidatesPopupを呼ぶ前にsearchParamsを保存
       const searchParams = lastSearchParams.value || {}
-      const limit = Math.min(100, Math.max(1, Number(searchParams?.limit) || 50))
-      console.log('selectCandidate: searchParams.limit =', searchParams?.limit, 'sanitized limit =', limit)
+      // 候補から1つを選択した場合は、選んだ作品1つのグラフのみ取得するためlimitは1に固定
+      const limit = 1
+      console.log('selectCandidate: 選択された候補のグラフのみ取得 (limit = 1)')
       
       closeCandidatesPopup()
       loading.value = true
@@ -504,7 +508,7 @@ export default {
       lastSearchMeta.value = { lang: null, mode: null }
       
       try {
-        // 選択した候補のタイトルでカスケード検索（統合API）
+        // 選択した候補のタイトルでカスケード検索（統合API）- 選んだ作品1つのみ取得
         const result = await searchGraphCascade(query, limit)
 
         lastSearchMeta.value = {

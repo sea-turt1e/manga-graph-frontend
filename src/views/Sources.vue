@@ -2,10 +2,6 @@
   <div class="sources">
     <header class="sources-header">
       <h1>出典</h1>
-      <nav class="sources-nav" aria-label="出典ページ内ナビゲーション">
-        <router-link class="nav-btn" to="/">トップへ戻る</router-link>
-        <router-link class="nav-btn" to="/links">関連リンク</router-link>
-      </nav>
     </header>
     <p>このアプリケーションは、以下のデータセットを使用しています：</p>
 
@@ -22,13 +18,19 @@
         </ul>
       </li>
     </ul>
+    <Footer />
   </div>
   
 </template>
 
 <script>
+import Footer from '../components/Footer.vue';
+
 export default {
-  name: 'Sources'
+  name: 'Sources',
+  components: {
+    Footer
+  }
 }
 </script>
 
@@ -48,29 +50,8 @@ h1 {
 .sources-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   margin-bottom: 12px;
 }
-
-.sources-nav {
-  display: flex;
-  gap: 8px;
-}
-
-.nav-btn {
-  display: inline-block;
-  font-size: 12px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  color: #111827;
-  background: #e5e7eb;
-  text-decoration: none;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.1s ease;
-}
-
-.nav-btn:hover { background: #d1d5db; }
-.nav-btn:active { transform: translateY(1px); }
 
 h1 {
   font-size: 1.6rem;

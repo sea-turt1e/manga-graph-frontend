@@ -3,9 +3,9 @@
     <!-- <Header /> -->
     <main class="main-content">
       <div class="container">
-        <h1 class="page-title">Manga Graphリンク</h1>
+        <h1 class="page-title">マンガつながりマップリンク</h1>
         <p class="page-description">
-          Manga Graphに関連するサイトへのリンク集です。
+          マンガつながりマップに関連するサイトへのリンク集です。
         </p>
         
         <div class="links-grid">
@@ -15,18 +15,15 @@
             <div class="link-cards">
               <a 
                 href="/" 
-                target="_blank" 
-                rel="noopener noreferrer"
                 class="link-card"
               >
                 <div class="link-icon">
-                  <img :src="graphCover" alt="Manga Graph" class="link-img" />
+                  <img :src="graphCover" alt="マンガつながりマップ" class="link-img" />
                 </div>
                 <div class="link-content">
-                  <h3>Manga Graph</h3>
-                  <p>漫画のグラフDBを可視化</p>
+                  <h3>マンガつながりマップ</h3>
+                  <p>漫画のグラフDBを可視化（ホームへ戻る）</p>
                 </div>
-                <div class="external-icon">↗</div>
               </a>
               
               <a 
@@ -152,17 +149,20 @@
         </div>
       </div>
     </main>
+    <Footer />
   </div>
 </template>
 
 <script>
 import graphCover from '../assets/graph-white-cover-image.png';
 import portfolioImage from '../assets/portfolio-image.jpeg';
+import Footer from '../components/Footer.vue';
 import Header from '../components/Header.vue';
 
 export default {
   name: 'Links',
   components: {
+    Footer,
     Header
   },
   data() {
