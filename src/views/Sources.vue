@@ -7,13 +7,12 @@
 
     <ul class="sources-list">
       <li>
-        <a href="https://www.kaggle.com/datasets/hamzaashfaque1999/myanimelist-scraped-data" target="_blank" rel="noopener noreferrer">
-          MyAnimeList Anime & Manga Dataset (July 2025)
+        <a href="https://mediaarts-db.artmuseums.go.jp/" target="_blank" rel="noopener noreferrer">
+          メディア芸術データベース
         </a>
         <ul>
           <li>
-            本プロジェクトは MyAnimeList Anime & Manga Dataset (July 2025)のデータを利用しています。データベースは
-            MITライセンスの下で提供されており、適切な帰属表示を行っています。
+            本プロジェクトは、独立行政法人国立美術館国立アートリサーチセンター「メディア芸術データベース」のデータを利用しています。
           </li>
         </ul>
       </li>
