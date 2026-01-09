@@ -7,12 +7,12 @@
 
     <ul class="sources-list">
       <li>
-        <a href="https://mediaarts-db.artmuseums.go.jp/" target="_blank" rel="noopener noreferrer">
-          メディア芸術データベース
+        <a href="https://myanimelist.net/" target="_blank" rel="noopener noreferrer">
+          MyAnimeList.net
         </a>
         <ul>
           <li>
-            本プロジェクトは、独立行政法人国立美術館国立アートリサーチセンター「メディア芸術データベース」のデータを利用しています。
+            本プロジェクトは、MyAnimeList.netのデータを公式API（https://myanimelist.net/apiconfig/references/api/v2）を利用して取得しています。
           </li>
         </ul>
       </li>
