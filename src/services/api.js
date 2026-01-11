@@ -187,7 +187,7 @@ export const searchVectorSimilarityMulti = async (
   limit = 10,
   threshold = 0.3,
   includeHentai = false,
-  embeddingDims = 256
+  embeddingDims = 128
 ) => {
   try {
     const response = await apiV1.post('/manga-anime-neo4j/vector/similarity/multi', {
@@ -284,7 +284,7 @@ export const searchVectorSimilarity = async (
     const response = await apiV1.post('/manga-anime-neo4j/vector/similarity', {
       query,
       embedding_type: embeddingType,
-      embedding_dims: 256,
+      embedding_dims: 128,
       limit,
       threshold,
       include_hentai: includeHentai
