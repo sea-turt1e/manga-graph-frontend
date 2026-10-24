@@ -34,12 +34,18 @@
 
 ### 必要要件
 
-- Node.js 16以上
+- Node.js v24.22.1 以上（`.nvmrc` で `24.22.1` を指定）
 - npm
+
+> Node.js v24.22.1 は、後述の [eMudhra 中間CA侵害](#セキュリティ-emudhra-中間ca侵害への対応) への修正を含むバージョンです。これより古い Node.js は使わないでください。
 
 ### インストール
 
 ```bash
+# Node.js のバージョンを合わせる（nvm を使う場合）
+nvm install
+nvm use
+
 # 依存関係のインストール
 npm install
 ```
@@ -60,6 +66,40 @@ npm run build
 # ビルドプレビュー
 npm run preview
 ```
+
+## セキュリティ: eMudhra 中間CA侵害への対応
+
+参照: https://emudhra.we-have-a-problem.com/
+
+### 概要
+
+- 認証局 eMudhra の中間CA 8件（Sectigo のクロス署名を含めると16件）で、秘密鍵が証明書から復元できる状態でした。攻撃者はこれを使い、任意のサイトになりすます証明書を発行できます（中間者攻撃）。
+- 連鎖先のルート証明書は `emSign ECC Root CA - G3` と `AAA Certificate Services` です。
+- Firefox / Chrome / Edge / Safari は Certificate Transparency（CT）を強制するため、影響はほぼ無いと見られています。一方、CT を確認しない **curl や Node.js などのブラウザ以外のクライアント**は影響を受けます。
+
+### このリポジトリで行った対応
+
+| 対象 | 変更内容 |
+|---|---|
+| `.nvmrc` | 新規作成し、`24.22.1` を指定 |
+| `package.json` | `engines.node` に `>=24.22.1` を追加 |
+| `Dockerfile` | ベースイメージを `node:18-alpine` から `node:24.22.1-alpine` に変更。あわせて `npm ci --only=production` を `npm ci` に変更 |
+| `netlify.toml` | `NODE_VERSION` を `18` から `24.22.1` に変更（ビルドと Netlify Functions のプロキシの両方が対象） |
+
+- 証明書検証を無効にする設定（`NODE_TLS_REJECT_UNAUTHORIZED` や `rejectUnauthorized: false` など）が無いことを確認済みです。
+- Netlify の管理画面で Node.js のバージョンを別に指定している場合は、そちらが優先されることがあります。デプロイ時のビルドログで `24.22.1` になっているか確認してください。
+
+### 開発者ごとに必要な対応
+
+ローカル環境も、修正版に更新してください。主な修正版は次のとおりです。
+
+- **Node.js**: 26.12.1 / 24.22.1 / 22.23.4 以降
+- **OS の CA 証明書**: macOS は Homebrew `ca-certificates` 2026-09-25_1 以降。Linux はディストリビューションの `ca-certificates` を更新
+- **Docker**: Docker Desktop 4.96.2 / Docker Engine 29.9.2 以降
+- **ツール**: Visual Studio Code 1.143.1 / GitHub CLI 2.102.1 / Claude Code 2.1.303 以降
+- **ブラウザ / OS**: 最新版に更新（Windows、macOS、Android は自動更新で対策が配信済み）
+
+その他のソフトウェアの修正版や、OS ごとの手動での対処手順は、上の参照ページを確認してください。
 
 ## 環境変数
 
