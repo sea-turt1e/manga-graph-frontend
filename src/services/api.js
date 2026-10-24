@@ -130,36 +130,110 @@ export const searchMediaArts = async (query, limit = 30) => {
   }
 }
 
-// 関連データ込みの検索機能
-export const searchMediaArtsWithRelated = async (
-  query,
-  limit = 50,
-  includeRelated = true,
-  options = {}
-) => {
+// 関連データ込みの検索機能（新統合API使用 - Step 1-6 統合）
+export const searchMediaArtsWithRelated = async (query, limit = 50, includeHentai = false) => {
+  const sanitizedLimit = Math.min(100, Math.max(1, Number(limit) || 50))
   try {
-    const {
-      sortTotalVolumes = 'desc',
-      minTotalVolumes = 5,
-      includeSamePublisherOtherMagazines = true,
-      samePublisherOtherMagazinesLimit = 5
-    } = options || {}
+    // 新統合API: カスケード検索（6回のAPIコールを1回に統合）
+    const result = await searchGraphCascade(query, sanitizedLimit, 'japanese,english', includeHentai)
+    return {
+      ...result,
+      nodes: result.nodes || [],
+      edges: result.edges || [],
+      meta: {
+        ...(result.meta || {}),
+        appliedApi: 'cascade'
+      }
+    }
+  } catch (error) {
+    console.error('Manga graph cascade search API error:', error)
+    throw error
+  }
+}
 
-    const response = await apiV1.get('/neo4j/search', {
+// ============================================
+// 新統合API: グラフ検索のカスケード（Step 1-6 統合）
+// ============================================
+export const searchGraphCascade = async (query, limit = 3, languages = 'japanese,english', includeHentai = false) => {
+  const sanitizedLimit = Math.min(100, Math.max(1, Number(limit) || 3))
+  try {
+    const response = await apiV1.get('/manga-anime-neo4j/graph/cascade', {
       params: {
         q: query,
-        limit,
-        include_related: includeRelated,
-        sort_total_volumes: sortTotalVolumes,
-        min_total_volumes: minTotalVolumes,
-        include_same_publisher_other_magazines: includeSamePublisherOtherMagazines,
-        same_publisher_other_magazines_limit: Math.min(10, Math.max(0, Number(samePublisherOtherMagazinesLimit) || 0))
+        limit: sanitizedLimit,
+        languages,
+        include_hentai: includeHentai
       }
+    })
+    return {
+      ...response.data,
+      meta: {
+        ...(response.data?.meta || {}),
+        appliedApi: 'cascade'
+      }
+    }
+  } catch (error) {
+    console.error('Graph cascade search API error:', error)
+    throw error
+  }
+}
+
+// ============================================
+// 新統合API: 類似検索の統合（Step 7-8 統合）
+// ============================================
+export const searchVectorSimilarityMulti = async (
+  query,
+  embeddingTypes = ['title_en', 'title_ja'],
+  limit = 10,
+  threshold = 0.3,
+  includeHentai = false,
+  embeddingDims = 128
+) => {
+  try {
+    const response = await apiV1.post('/manga-anime-neo4j/vector/similarity/multi', {
+      query,
+      embedding_types: embeddingTypes,
+      embedding_dims: embeddingDims,
+      limit,
+      threshold,
+      include_hentai: includeHentai
     })
     return response.data
   } catch (error) {
-    console.error('Media Arts search with related API error:', error)
-    console.log('Media Arts search with related API not yet available')
+    console.error('Vector similarity multi API error:', error)
+    throw error
+  }
+}
+
+// ============================================
+// 新統合API: 関連グラフの一括取得（Step 11-13 統合）
+// ============================================
+export const getRelatedGraphsBatch = async ({
+  authorNodeId = null,
+  magazineNodeId = null,
+  publisherNodeId = null,
+  authorLimit = 5,
+  magazineLimit = 5,
+  publisherLimit = 3,
+  referenceWorkId = null,
+  excludeMagazineId = null,
+  includeHentai = false
+} = {}) => {
+  try {
+    const response = await apiV1.post('/manga-anime-neo4j/related-graphs/batch', {
+      author_node_id: authorNodeId,
+      magazine_node_id: magazineNodeId,
+      publisher_node_id: publisherNodeId,
+      author_limit: authorLimit,
+      magazine_limit: magazineLimit,
+      publisher_limit: publisherLimit,
+      reference_work_id: referenceWorkId,
+      exclude_magazine_id: excludeMagazineId,
+      include_hentai: includeHentai
+    })
+    return response.data
+  } catch (error) {
+    console.error('Related graphs batch API error:', error)
     throw error
   }
 }
@@ -194,6 +268,89 @@ export const searchTitleSimilarity = async (
     return response.data
   } catch (error) {
     console.error('Title similarity API error:', error)
+    throw error
+  }
+}
+
+// ベクトル類似度検索（タイトル曖昧検索）
+export const searchVectorSimilarity = async (
+  query,
+  embeddingType = 'title_en',
+  limit = 5,
+  threshold = 0.5,
+  includeHentai = false
+) => {
+  try {
+    const response = await apiV1.post('/manga-anime-neo4j/vector/similarity', {
+      query,
+      embedding_type: embeddingType,
+      embedding_dims: 128,
+      limit,
+      threshold,
+      include_hentai: includeHentai
+    })
+    return response.data
+  } catch (error) {
+    console.error(`Vector similarity API error (${embeddingType}):`, error)
+    throw error
+  }
+}
+
+// タイトル曖昧検索（新統合API使用 - Step 7-8 統合）
+export const searchTitleCandidates = async (
+  query,
+  limit = 10,
+  threshold = 0.3,
+  includeHentai = false
+) => {
+  try {
+    // 新統合API: 英語タイトルと日本語タイトルの両方を一回のAPIコールで検索
+    const result = await searchVectorSimilarityMulti(
+      query,
+      ['title_en', 'title_ja'],
+      limit,
+      threshold,
+      includeHentai
+    )
+
+    // APIが既にマージ・重複排除・ソート済みの結果を返す
+    const candidates = (result?.results || []).map(item => ({
+      ...item,
+      similarity: item.similarity_score || 0
+    }))
+
+    return {
+      candidates,
+      totalCount: candidates.length
+    }
+  } catch (error) {
+    console.error('Title candidates search error:', error)
+    throw error
+  }
+}
+
+// グラフ検索（mode=simple, lang=english固定）
+export const searchGraphSimple = async (query, limit = 50) => {
+  const sanitizedLimit = Math.min(100, Math.max(1, Number(limit) || 50))
+  try {
+    const response = await apiV1.get('/manga-anime-neo4j/graph', {
+      params: {
+        q: query,
+        limit: sanitizedLimit,
+        lang: 'english',
+        mode: 'simple'
+      }
+    })
+    return {
+      ...response.data,
+      meta: {
+        ...(response.data?.meta || {}),
+        appliedLang: 'english',
+        appliedMode: 'simple'
+      }
+    }
+  } catch (error) {
+    console.error('Graph simple search API error:', error)
     throw error
   }
 }
@@ -233,6 +390,84 @@ export const fulltextSearch = async (query, searchType = 'simple_query_string', 
   } catch (error) {
     console.error('Fulltext search API error:', error)
     console.log('Fulltext search API not yet available')
+    throw error
+  }
+}
+
+const encodeId = (value) => encodeURIComponent(value)
+
+const buildLimitParams = (limit) => {
+  if (limit === undefined || limit === null) return {}
+  if (typeof limit === 'number' && Number.isFinite(limit)) {
+    return { limit: String(limit) }
+  }
+  if (typeof limit === 'string' && limit.trim().length > 0) {
+    return { limit: limit.trim() }
+  }
+  return {}
+}
+
+export const getAuthorRelatedWorks = async (authorNodeId, limit = 5) => {
+  if (!authorNodeId) return { nodes: [], edges: [] }
+  try {
+    const response = await apiV1.get(`/manga-anime-neo4j/author/${encodeId(authorNodeId)}/works`, {
+      params: buildLimitParams(limit)
+    })
+    return response.data
+  } catch (error) {
+    console.error(`Author works API error (${authorNodeId}):`, error)
+    throw error
+  }
+}
+
+export const getMagazineRelatedWorks = async (magazineNodeId, limit = 5) => {
+  if (!magazineNodeId) return { nodes: [], edges: [] }
+  try {
+    const response = await apiV1.get(`/manga-anime-neo4j/magazine/${encodeId(magazineNodeId)}/works`, {
+      params: buildLimitParams(limit)
+    })
+    return response.data
+  } catch (error) {
+    console.error(`Magazine works API error (${magazineNodeId}):`, error)
+    throw error
+  }
+}
+
+export const getPublisherMagazines = async (publisherNodeId, limit = 5) => {
+  if (!publisherNodeId) return { nodes: [], edges: [] }
+  try {
+    const response = await apiV1.get(`/manga-anime-neo4j/publisher/${encodeId(publisherNodeId)}/magazines`, {
+      params: buildLimitParams(limit)
+    })
+    return response.data
+  } catch (error) {
+    console.error(`Publisher magazines API error (${publisherNodeId}):`, error)
+    throw error
+  }
+}
+
+export const getMagazineWorkGraph = async (magazineElementIds, workLimit = 3, referenceWorkId = null, includeHentai = false) => {
+  if (!Array.isArray(magazineElementIds) || magazineElementIds.length === 0) {
+    return { nodes: [], edges: [] }
+  }
+
+  const sanitizedLimit = Math.min(500, Math.max(1, Number(workLimit) || 3))
+  const payload = {
+    magazine_element_ids: magazineElementIds,
+    work_limit: sanitizedLimit,
+    include_hentai: includeHentai
+  }
+  
+  // reference_work_idが指定されている場合のみ追加（element_id形式: "4:xxx:123"）
+  if (referenceWorkId) {
+    payload.reference_work_id = String(referenceWorkId)
+  }
+
+  try {
+    const response = await apiV1.post('/manga-anime-neo4j/magazines/work-graph', payload)
+    return response.data
+  } catch (error) {
+    console.error('Magazine work graph API error:', error)
     throw error
   }
 }

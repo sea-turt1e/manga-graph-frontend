@@ -39,10 +39,10 @@ export default {
       loading.value = true
       try {
         // 常にsearchMediaArtsWithRelatedを使用
+        const limit = Math.min(100, Math.max(1, Number(searchParams?.limit) || 50))
         const result = await searchMediaArtsWithRelated(
           searchParams.query,
-          searchParams.limit || 50, // limitパラメータを使用、デフォルトは50
-          searchParams.includeRelated
+          limit // limitパラメータを使用、デフォルトは50
         )
         
         // 検索結果のノードを特定してマークする
